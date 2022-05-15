@@ -12,3 +12,6 @@ venv/
 .coverage
 .coveragerc
 htmlcov/
+
+# Experiments
+data/
