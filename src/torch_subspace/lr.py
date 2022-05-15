@@ -158,11 +158,20 @@ class SubspaceLR(nn.Module):
         return torch.concat(weights, dim=0)
 
     @property
-    def block_shape(self) -> tuple:
+    def block_shape(self) -> tuple[int, int]:
         """Returns the number of blocks in (num_vertical, num_horizontal)"""
         num_rows = len(self._weights)
         num_cols = len(self._weights[0])
         return (num_rows, num_cols)
+    
+    def block_size(self, row: int, col: int) -> tuple[int, int]:
+        """Returns the size of the block at a given index"""
+        block = self._weights[row][col]
+        if len(block) == 1:
+            return block[0].shape
+        else:
+            [u, v] = block
+            return (u.shape[0], v.shape[1])
 
     def get_eff_block(self, row: int, col: int) -> torch.Tensor:
         """Returns a specific block detached from compute graph"""
