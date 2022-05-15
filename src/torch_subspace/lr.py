@@ -173,6 +173,10 @@ class SubspaceLR(nn.Module):
             [u, v] = block
             return (u.shape[0], v.shape[1])
 
+    def size(self) -> tuple[int, int]:
+        """Returns the size of the effective weights"""
+        return (self.num_rows, self.num_cols)
+
     def get_eff_block(self, row: int, col: int) -> torch.Tensor:
         """Returns a specific block detached from compute graph"""
         if len(self._weights[row][col]) == 1:
