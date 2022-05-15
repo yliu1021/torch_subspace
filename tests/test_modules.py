@@ -2,7 +2,7 @@ import unittest
 
 import torch
 
-from torch_subspace import LinearLR, Conv2dLR
+from torch_subspace import Conv2dLR, LinearLR
 
 
 class TestLinearLR(unittest.TestCase):
@@ -18,7 +18,9 @@ class TestLinearLR(unittest.TestCase):
 
 class TestConv2dLR(unittest.TestCase):
     def setUp(self) -> None:
-        self.module = Conv2dLR(in_channels=10, out_channels=8, kernel_size=3, padding="same")
+        self.module = Conv2dLR(
+            in_channels=10, out_channels=8, kernel_size=3, padding="same"
+        )
 
     def test_forward(self):
         x = torch.rand(1, 10, 20, 18, dtype=torch.float)

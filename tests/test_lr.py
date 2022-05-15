@@ -34,8 +34,8 @@ class TestSubspaceLR(unittest.TestCase):
 
     def test_set_mask(self):
         self.module.set_blocks([2, 8], [3, 4])
-        self.module.set_mask(0, 0, torch.tensor([1, 0])) # set a low rank mask
-        self.module.set_mask(0, 0, torch.tensor([1, 1])) # then set full rank
+        self.module.set_mask(0, 0, torch.tensor([1, 0]))  # set a low rank mask
+        self.module.set_mask(0, 0, torch.tensor([1, 1]))  # then set full rank
         # weights should be the same because the mask doesn't change the weights
         self.assertAlmostEqual(
             float(torch.sum(self.initial_eff_weights - self.module.eff_weights())),
@@ -57,7 +57,7 @@ class TestSubspaceLR(unittest.TestCase):
         self.module.set_blocks([2, 8], [3, 4])
         self.module.set_mask(0, 0, torch.tensor([1, 1]))
         self.assertEqual(self.module.block_size(0, 0), (2, 3))
-    
+
     def test_set_block_eff_weights(self):
         self.module.set_blocks([2, 8], [3, 4])
         self.module.set_mask(0, 0, torch.tensor([1, 1]))
@@ -66,7 +66,7 @@ class TestSubspaceLR(unittest.TestCase):
         self.assertAlmostEqual(
             float(torch.sum(init_eff_block - self.module.get_eff_block(0, 0))),
             0,
-            places=6
+            places=6,
         )
 
     def test_eff_num_el(self):

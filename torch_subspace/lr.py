@@ -163,7 +163,7 @@ class SubspaceLR(nn.Module):
         num_rows = len(self._weights)
         num_cols = len(self._weights[0])
         return (num_rows, num_cols)
-    
+
     def block_size(self, row: int, col: int) -> tuple[int, int]:
         """Returns the size of the block at a given index"""
         block = self._weights[row][col]
