@@ -7,3 +7,8 @@ venv/
 
 # IDE
 .vscode/
+
+# Coverage
+.coverage
+.coveragerc
+htmlcov/
