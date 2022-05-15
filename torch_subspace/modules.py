@@ -1,6 +1,6 @@
+import math
 from typing import Union
 
-import math
 import torch
 from torch import nn
 from torch.nn import functional as F
