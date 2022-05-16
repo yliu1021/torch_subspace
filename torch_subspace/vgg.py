@@ -63,42 +63,43 @@ cfgs: Dict[str, List[Union[str, int]]] = {
 # fmt: on
 
 
-def _vgg(cfg: str, batch_norm: bool, num_classes: int, dropout: float) -> VGG:
+def _vgg(cfg: str, batch_norm: bool, num_classes: int, dropout: float, device = None) -> VGG:
     model = VGG(
         features=make_layers(cfgs[cfg], batch_norm=batch_norm),
         num_classes=num_classes,
         dropout=dropout,
     )
+    model.to(device)
     return model
 
 
-def vgg11(batch_norm: bool, num_classes: int, dropout: float = 0.5) -> VGG:
+def vgg11(batch_norm: bool, num_classes: int, dropout: float = 0.5, device = None) -> VGG:
     r"""VGG 11-layer model (configuration "A") from
     `"Very Deep Convolutional Networks For Large-Scale Image Recognition" <https://arxiv.org/pdf/1409.1556.pdf>`_.
     The required minimum input size of the model is 32x32.
     """
-    return _vgg("A", batch_norm, num_classes=num_classes, dropout=dropout)
+    return _vgg("A", batch_norm, num_classes=num_classes, dropout=dropout, device=device)
 
 
-def vgg13(batch_norm: bool, num_classes: int, dropout: float = 0.5) -> VGG:
+def vgg13(batch_norm: bool, num_classes: int, dropout: float = 0.5, device = None) -> VGG:
     r"""VGG 13-layer model (configuration "B")
     `"Very Deep Convolutional Networks For Large-Scale Image Recognition" <https://arxiv.org/pdf/1409.1556.pdf>`_.
     The required minimum input size of the model is 32x32.
     """
-    return _vgg("B", batch_norm, num_classes=num_classes, dropout=dropout)
+    return _vgg("B", batch_norm, num_classes=num_classes, dropout=dropout, device=device)
 
 
-def vgg16(batch_norm: bool, num_classes: int, dropout: float = 0.5) -> VGG:
+def vgg16(batch_norm: bool, num_classes: int, dropout: float = 0.5, device = None) -> VGG:
     r"""VGG 16-layer model (configuration "D")
     `"Very Deep Convolutional Networks For Large-Scale Image Recognition" <https://arxiv.org/pdf/1409.1556.pdf>`_.
     The required minimum input size of the model is 32x32.
     """
-    return _vgg("D", batch_norm, num_classes=num_classes, dropout=dropout)
+    return _vgg("D", batch_norm, num_classes=num_classes, dropout=dropout, device=device)
 
 
-def vgg19(batch_norm: bool, num_classes: int, dropout: float = 0.5) -> VGG:
+def vgg19(batch_norm: bool, num_classes: int, dropout: float = 0.5, device = None) -> VGG:
     r"""VGG 19-layer model (configuration "E")
     `"Very Deep Convolutional Networks For Large-Scale Image Recognition" <https://arxiv.org/pdf/1409.1556.pdf>`_.
     The required minimum input size of the model is 32x32.
     """
-    return _vgg("E", batch_norm, num_classes=num_classes, dropout=dropout)
+    return _vgg("E", batch_norm, num_classes=num_classes, dropout=dropout, device=device)

@@ -13,16 +13,17 @@ def calc_num_correct(y_pred, y_true):
 
 def train(
     model: nn.Module,
-    train: DataLoader,
+    data: DataLoader,
     loss_fn,
     optimizer: optim.Optimizer,
     device,
 ):
-    size = len(train.dataset)
+    size = len(data.dataset)
     model.train()
+    step = 0
     losses = []
     accuracies = []
-    for batch, (X, y) in enumerate(train):
+    for X, y in data:
         X, y = X.to(device), y.to(device)
         pred = model(X)
         loss = loss_fn(pred, y)
@@ -31,29 +32,29 @@ def train(
         loss.backward()
         optimizer.step()
 
-        step = batch * len(X)
+        step += len(X)
         losses.append(loss.item())
         accuracies.append(calc_num_correct(pred, y) / len(y))
         print(
-            f"\rStep: {step:>05} / {size} | Loss: {np.mean(losses):.5f} | Accuracy: {np.mean(accuracies):.4f}",
+            f"\r[Train] Step: {step:>05} / {size} | Loss: {np.mean(losses):.5f} | Accuracy: {np.mean(accuracies):.4f}",
             end="",
         )
     print()
-    return {"loss": np.mean(losses), "accuracy": np.mean(accuracies)}
+    return np.mean(losses), np.mean(accuracies)
 
 
-def test(model: nn.Module, test: DataLoader, loss_fn, device):
-    size = len(test.dataset)
-    num_batches = len(test)
+def test(model: nn.Module, data: DataLoader, loss_fn, device):
+    size = len(data.dataset)
+    num_batches = len(data)
     model.eval()
     test_loss, correct = 0, 0
     with torch.no_grad():
-        for X, y in test:
+        for X, y in data:
             X, y = X.to(device), y.to(device)
             pred = model(X)
             test_loss += loss_fn(pred, y).item()
             correct += (pred.argmax(1) == y).type(torch.float).sum().item()
     test_loss /= num_batches
     correct /= size
-    print(f"Test Error: Accuracy: {(100*correct):>0.1f}%, Avg loss: {test_loss:>8f}")
-    return 100 * correct, test_loss
+    print(f"[Test] Loss: {test_loss:.5f} | Accuracy: {correct:.4f}")
+    return test_loss, correct
