@@ -13,7 +13,7 @@ class TestSubspaceLR(unittest.TestCase):
         self.initial_eff_weights = self.module.eff_weights().detach()
 
     def test_size(self):
-        self.assertEqual(self.module.size(), (10, 7))
+        self.assertEqual(self.module.shape, (10, 7))
 
     def test_eff_weights_size(self):
         self.assertEqual(self.initial_eff_weights.size(), (10, 7))

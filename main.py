@@ -1,12 +1,23 @@
-from shutil import register_unpack_format
 import torch
 from torch import nn, optim
-from torch.utils import data
 
 from torch_subspace import vgg
 
+import pruners
+from pruners import alignment
+
 from experiments.data import get_data
 from experiments.train import train, test
+from torch_subspace.lr import SubspaceLR
+
+
+def calc_size(model: nn.Module) -> int:
+    size = 0
+    for module in model.modules():
+        if not isinstance(module, SubspaceLR):
+            continue
+        size += module.eff_numel()
+    return size
 
 
 def main(
@@ -45,10 +56,29 @@ def main(
         return train_metrics, test_metrics
 
     fit(
-        epochs=160,
+        epochs=120,
         lr=lr,
         momentum=momentum,
         weight_decay=weight_decay,
+    )
+
+    print(f"Preprune mem allocated: {torch.cuda.memory_allocated()}")
+    preprune_size = calc_size(model)
+    alignment.make_blocks(model)
+    scores = alignment.prune(model, train_data=train_data, device=device)
+    print(f"Post scoring mem allocated: {torch.cuda.memory_allocated()}")
+    pruners.prune_scores(model, scores, sparsity=0.93, device=device)
+    print(f"Postprune mem allocated: {torch.cuda.memory_allocated()}")
+    postprune_size = calc_size(model)
+
+    print(f"Preprune size: {preprune_size}")
+    print(f"Postprune size: {postprune_size}")
+
+    fit(
+        epochs=60,
+        lr=lr / 8,
+        momentum=momentum,
+        weight_decay=weight_decay
     )
 
 
@@ -56,7 +86,7 @@ if __name__ == "__main__":
     main(
         device="cuda:0",
         dataset="cifar10",
-        batch_size=128,
+        batch_size=256,
         lr=0.05,
         momentum=0.9,
         weight_decay=5e-4,

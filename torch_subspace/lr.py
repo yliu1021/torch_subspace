@@ -20,8 +20,9 @@ Thus, a two nested nn.ModuleLists are used to store a nn.ParameterList. Effectiv
 each block is represented as a nn.ParameterList that contains one parameter if 
 that block is full rank and two parameters if that block is low rank.
 """
+import itertools
 import math
-from typing import Optional
+from typing import Iterator, Optional
 
 import torch
 from torch import nn
@@ -134,6 +135,17 @@ class SubspaceLR(nn.Module):
         )
         self._masks[row_ind][col_ind] = None
 
+    def create_set_mask(self, row: int, col: int) -> torch.Tensor:
+        """
+        Creates a full rank mask if one didn't exist and doesn't do anything if one did exist.
+        Returns the mask that was created or the one that existed.
+        """
+        if self._masks[row][col] is not None:
+            return self._masks[row][col]
+        mask = torch.tensor([1] * self.block_mask_size(row, col))
+        self.set_mask(row, col, mask)
+        return mask
+
     def eff_weights(self) -> torch.Tensor:
         """
         Returns the effective weights of the layer (with grads)
@@ -173,7 +185,18 @@ class SubspaceLR(nn.Module):
             [u, v] = block
             return (u.shape[0], v.shape[1])
 
-    def size(self) -> tuple[int, int]:
+    def block_mask_size(self, row: int, col: int) -> int:
+        """Returns the mask size for a given block"""
+        n, m = self.block_size(row, col)
+        return min(n, m)
+
+    def block_ind_iter(self) -> Iterator[tuple[int, int]]:
+        """Iterates over all tuple indices of blocks"""
+        n, m = self.block_shape
+        return itertools.product(range(n), range(m))
+
+    @property
+    def shape(self) -> tuple[int, int]:
         """Returns the size of the effective weights"""
         return (self.num_rows, self.num_cols)
 
