@@ -1,7 +1,7 @@
 # Torch Subspace
 
 ## Code Formatting
-`isort` and `black` are used for code formatting. Those can be installed via
+`isort` and `black` are used for code formatting. They can be installed via
 ```
 pip install isort black
 ```
