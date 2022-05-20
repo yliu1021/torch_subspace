@@ -1,0 +1,74 @@
+from torch import nn
+from .modules import LinearLR, Conv2dLR
+
+
+def convert_linear_to_lr(linear: nn.Linear) -> LinearLR:
+    lr = LinearLR(linear.in_features, linear.out_features, linear.bias is not None)
+    assert len(lr._weights) == 1, "New lr blocks should have 1 row"
+    assert len(lr._weights[0]) == 1, "New lr blocks should have 1 col"
+    assert (
+        len(lr._weights[0][0]) == 1
+    ), "New lr block should have 1 parameter (in W form)"
+    lr._weights[0][0][0] = linear.weight.detach().clone()
+    if linear.bias:
+        lr.bias = linear.bias.detach().clone()
+
+
+def convert_conv2d_to_lr(conv: nn.Conv2d) -> Conv2dLR:
+    lr = Conv2dLR(
+        conv.in_channels,
+        conv.out_channels,
+        conv.kernel_size,
+        conv.stride,
+        conv.padding,
+        conv.dilation,
+        conv.groups,
+        conv.bias is not None,
+        conv.padding_mode,
+    )
+    assert len(lr._weights) == 1, "New lr blocks should have 1 row"
+    assert len(lr._weights[0]) == 1, "New lr blocks should have 1 col"
+    assert (
+        len(lr._weights[0][0]) == 1
+    ), "New lr block should have 1 parameter (in W form)"
+    lr._weights[0][0][0] = (
+        conv.weight.detach().clone().reshape(lr.num_rows, lr.num_cols)
+    )
+    if conv.bias:
+        lr.bias = conv.bias.detach().clone()
+
+
+def convert_model_to_lr(model: nn.Module):
+    """
+    Recursively modifies a module in place to replace instances of conv2d and linear modules into
+    low rank alternatives
+    :param model: the module to convert
+    :return:
+    """
+    if isinstance(model, nn.Linear):
+        return convert_linear_to_lr(model)
+    elif isinstance(model, nn.Conv2d):
+        return convert_conv2d_to_lr(model)
+
+    for attr_name in dir(model):
+        attr = getattr(model, attr_name)
+        if isinstance(attr, nn.ModuleList) or isinstance(attr, nn.Sequential):
+            for i in range(len(attr)):
+                attr[i] = convert_model_to_lr(attr[i])
+        elif isinstance(attr, nn.ModuleDict):
+            for key in attr.keys():
+                attr[key] = convert_model_to_lr(attr[key])
+        elif isinstance(attr, nn.Module):
+            attr = convert_model_to_lr(attr)
+        else:
+            continue
+        setattr(model, attr_name, attr)
+
+    assert not any(
+        [
+            isinstance(layer, nn.Conv2d) or isinstance(layer, nn.Linear)
+            for layer in model.modules()
+        ]
+    ), "Convert to lr model failed."
+
+    return model
