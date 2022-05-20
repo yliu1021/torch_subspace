@@ -11,6 +11,11 @@ To run them:
 isort experiments pruners tests torch_subspace main.py && black experiments pruners tests torch_subspace main.py
 ```
 
+This can be added to a git hook:
+```
+echo "isort experiments pruners tests torch_subspace main.py && black experiments pruners tests torch_subspace main.py" > .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+```
+
 ## Packages
 
 ### `torch_subspace`
