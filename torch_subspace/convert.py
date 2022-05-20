@@ -1,5 +1,6 @@
 from torch import nn
-from .modules import LinearLR, Conv2dLR
+
+from torch_subspace.modules import Conv2dLR, LinearLR
 
 
 def convert_linear_to_lr(linear: nn.Linear) -> LinearLR:
@@ -9,9 +10,9 @@ def convert_linear_to_lr(linear: nn.Linear) -> LinearLR:
     assert (
         len(lr._weights[0][0]) == 1
     ), "New lr block should have 1 parameter (in W form)"
-    lr._weights[0][0][0] = linear.weight.detach().clone()
-    if linear.bias:
-        lr.bias = linear.bias.detach().clone()
+    lr._weights[0][0][0] = nn.Parameter(linear.weight.detach().clone())
+    if linear.bias is not None:
+        lr.bias = nn.Parameter(linear.bias.detach().clone())
 
 
 def convert_conv2d_to_lr(conv: nn.Conv2d) -> Conv2dLR:
@@ -31,11 +32,11 @@ def convert_conv2d_to_lr(conv: nn.Conv2d) -> Conv2dLR:
     assert (
         len(lr._weights[0][0]) == 1
     ), "New lr block should have 1 parameter (in W form)"
-    lr._weights[0][0][0] = (
+    lr._weights[0][0][0] = nn.Parameter(
         conv.weight.detach().clone().reshape(lr.num_rows, lr.num_cols)
     )
-    if conv.bias:
-        lr.bias = conv.bias.detach().clone()
+    if conv.bias is not None:
+        lr.bias = nn.Parameter(conv.bias.detach().clone())
 
 
 def convert_model_to_lr(model: nn.Module):
