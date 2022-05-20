@@ -1,16 +1,15 @@
 import itertools
+
 import torch
 from torch import nn, optim
-
-from torch_subspace import vgg
+from torch.utils.tensorboard import SummaryWriter
 
 import pruners
-from pruners import alignment
-
 from experiments.data import get_data
-from experiments.train import train, test
+from experiments.train import test, train
+from pruners import alignment
+from torch_subspace import vgg
 from torch_subspace.lr import SubspaceLR
-from torch.utils.tensorboard import SummaryWriter
 
 
 def calc_size(model: nn.Module) -> int:
@@ -69,12 +68,12 @@ def main(
             writer.add_scalars(
                 f"Loss/{train_type}",
                 tag_scalar_dict={"train": train_res[0], "test": test_res[0]},
-                global_step=i
+                global_step=i,
             )
             writer.add_scalars(
                 f"Accuracy/{train_type}",
                 tag_scalar_dict={"train": train_res[1], "test": test_res[1]},
-                global_step=i
+                global_step=i,
             )
             best_train_loss = min(best_train_loss, train_res[0])
             best_test_loss = min(best_test_loss, test_res[0])
@@ -147,8 +146,7 @@ def main(
 
 if __name__ == "__main__":
     for preprune_epochs, sparsity in itertools.product(
-        [0, 20, 60, 120],
-        [0.6, 0.9, 0.95, 0.98]
+        [0, 20, 60, 120], [0.6, 0.9, 0.95, 0.98]
     ):
         main(
             device="cuda:0",

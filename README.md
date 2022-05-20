@@ -1,5 +1,16 @@
 # Torch Subspace
 
+## Code Formatting
+`isort` and `black` are used for code formatting. Those can be installed via
+```
+pip install isort black
+```
+
+To run them:
+```
+isort experiments pruners tests torch_subspace main.py && black experiments pruners tests torch_subspace main.py
+```
+
 ## Packages
 
 ### `torch_subspace`

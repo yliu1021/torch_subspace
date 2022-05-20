@@ -7,13 +7,11 @@
 - This means block size has to be at least `2 R / rho` big
 """
 import numpy as np
-
 import torch
 from torch import nn
 from torch.utils import data
 
 from torch_subspace import SubspaceLR
-
 
 R = 1
 rho = 1 - 0.95  # wish to prune to at least 90% sparsity
