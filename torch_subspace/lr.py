@@ -1,45 +1,61 @@
 """
 SubpaceLR represents an abstract nn.Module to subclass by other classes in order
-to inherit subspace low rank decomposable properties.
+to inherit subspace low rank decomposable properties. SubspaceLR defines a 
+"default" forward pass that just performs a matrix multiplication.
 
-The number of blocks is mutable and the SVD mask for each block is mutable.
-When a mask is set to None, that block is represented as a single matrix W.
-When a mask is set to a 1D tensor, that block is represented as two matrices U/V.
+SubspaceLR has two representations:
+1. A single matrix forward pass (expressed in W or UV form)
+2. A recursive representation of a partitioned subspace
 
-** IMPORTANT **
-When nn.Modules are subclassed, the class keeps track of modules, parameters, and
-buffers used by the class in question. It does this by *tracking the Python object's
-attributes* (see the `__setattr__` method of nn.Module).
+In representation 1, the `weights` attribute is a nn.ParameterList
+with either one or two weights (corresponding to W or UV form), and an
+attribute `sv_mask` for masking.
 
-Unfortunately, the issue with this is if our attribute is a list of lists, then
-PyTorch will *not* automatically track parameters in that list. This means each
-weight block and mask will need to be registered via `register_parameter(name, param)`
-or `register_buffer(name, tensor)` (see nn.ParameterList and nn.ModuleList).
+In representation 2, the `weights` attribute is a nn.ModuleList containing
+(recursively) a list of SubspaceLR modules and a `direction` attribute
+that represents the axis along which these SubspaceLR modules span in the
+effective matrix. This allows each child SubspaceLR to represent a block
+of the parent effective matrix.
 
-Thus, a two nested nn.ModuleLists are used to store a nn.ParameterList. Effectively,
-each block is represented as a nn.ParameterList that contains one parameter if 
-that block is full rank and two parameters if that block is low rank.
+* Note that direction is either "horizontal" or "vertical"
+
+In representation 1, we call the SubspaceLR module a "leaf" module, and in
+representation 2, we call it a "non-leaf" module. Setting (or clearing) a
+mask is only supported on "leaf" modules.
+
+To go between the two representations, the methods `split` and `collect`
+will go from representation 1 to 2 and from 2 to 1 respectively.
 """
-import itertools
-import math
-from typing import Iterator, Optional
+from typing import Union
 
 import torch
 from torch import nn
+from torch.nn import functional as F
 
 
-def _decompose(parameter: nn.Parameter) -> tuple[nn.Parameter, nn.Parameter]:
+def _decompose(parameter: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
     """Performs SVD and returns (U, V) with sqrt(s) multiplied in"""
     u, s, v = torch.linalg.svd(parameter, full_matrices=False)
     s_sqrt = torch.diag(torch.sqrt(s))
     # make sure we return a "fresh" set of U and V matrices
     u = torch.matmul(u, s_sqrt).detach()
     v = torch.matmul(s_sqrt, v).detach()
-    return (nn.Parameter(u), nn.Parameter(v))
+    return u, v
+
+
+def _leaf_only(fn):
+    """Helper decorator to make a method callable only on a leaf node"""
+
+    def f(self: "SubspaceLR", *args, **kwargs):
+        if not self.is_leaf:
+            raise ValueError(f"method: {fn.__name__} can only be called on a leaf node")
+        return fn(self, *args, **kwargs)
+
+    return f
 
 
 class SubspaceLR(nn.Module):
-    def __init__(self, num_rows: int, num_cols: int, dtype=torch.float, device=None):
+    def __init__(self, num_rows: int, num_cols: int):
         """
         Creates a subspace linear module with a given num_rows and num_cols for the
         effective weight matrix size. For Linear modules, this corresponds to the
@@ -49,174 +65,168 @@ class SubspaceLR(nn.Module):
         super().__init__()
         self.num_rows = num_rows
         self.num_cols = num_cols
-        self.dtype = dtype
-        self.device = device
-        # initialize weights
-        init_weights = torch.empty(
-            self.num_rows, self.num_cols, dtype=self.dtype, device=self.device
+        self._direction = "horizontal"  # horizontal split by default
+        self.weights: Union[nn.ParameterList, nn.ModuleList] = nn.ParameterList(
+            [nn.Parameter(torch.empty(self.num_rows, self.num_cols))]
         )
-        nn.init.kaiming_uniform_(init_weights, a=math.sqrt(5))
-        init_weights = nn.Parameter(init_weights)
-        self._weights = nn.ModuleList(
-            [nn.ModuleList([nn.ParameterList([init_weights])])]
-        )
-        self._masks: list[list[Optional[torch.Tensor]]] = [[None]]
-
-    def set_blocks(
-        self,
-        row_sizes: list[int],
-        col_sizes: list[int],
-    ):
-        """
-        Breaks down the effective weight matrix into blocks, suitable for
-        subspace low rank decomposition
-        """
-        if sum(row_sizes) != self.num_rows or sum(col_sizes) != self.num_cols:
-            raise ValueError(
-                f"The row and col sizes must sum up to self.num_rows and self.num_cols respectively"
-            )
-        eff_weights = self.eff_weights()
-        self._weights = nn.ModuleList()
-        self._masks = []
-        row = 0
-        for row_size in row_sizes:
-            weight_row = nn.ModuleList()
-            mask_row = []
-            col = 0
-            for col_size in col_sizes:
-                weight_row.append(
-                    nn.ParameterList(
-                        [
-                            nn.Parameter(
-                                eff_weights[row : row + row_size, col : col + col_size]
-                            )
-                        ]
-                    )
-                )
-                mask_row.append(None)
-                col += col_size
-            self._weights.append(weight_row)
-            self._masks.append(mask_row)
-            row += row_size
-
-    def set_mask(self, row_ind: int, col_ind: int, mask: torch.Tensor):
-        """Sets the mask for a given block in the weight matrix"""
-        if len(mask.shape) != 1:
-            raise ValueError("Mask must be 1 dimensional")
-        mask = mask.to(dtype=self.dtype, device=self.device)
-        block = self._weights[row_ind][col_ind]
-        if self._masks[row_ind][col_ind] is None:
-            assert (
-                len(block) == 1
-            ), "Mask is none for this block so block should be a single weight matrix"
-            block = block[0]
-            if mask.shape[0] != min(block.shape):
-                raise ValueError("Mask length must equal min(block.shape)")
-            u, v = _decompose(block)
-            self._weights[row_ind][col_ind] = nn.ParameterList([u, v])
-            self._masks[row_ind][col_ind] = mask.detach()
-        else:
-            assert (
-                len(block) == 2
-            ), "Mask is not none for this block so block should be two matrices"
-            if mask.shape[0] != self._masks[row_ind][col_ind].shape[0]:
-                raise ValueError("Mask length must equal min(block.shape)")
-            self._masks[row_ind][col_ind] = mask.detach()
-
-    def clear_mask(self, row_ind: int, col_ind: int):
-        """Removes the mask of a block. No op if mask was already cleared"""
-        if self._masks[row_ind][col_ind] is None:
-            return
-        [u, v] = self._weights[row_ind][col_ind]
-        old_mask = self._masks[row_ind][col_ind]
-        old_eff_block = u @ torch.diag(old_mask) @ v
-        self._weights[row_ind][col_ind] = nn.ParameterList(
-            [nn.Parameter(old_eff_block.detach())]
-        )
-        self._masks[row_ind][col_ind] = None
-
-    def create_set_mask(self, row: int, col: int) -> torch.Tensor:
-        """
-        Creates a full rank mask if one didn't exist and doesn't do anything if one did exist.
-        Returns the mask that was created or the one that existed.
-        """
-        if self._masks[row][col] is not None:
-            return self._masks[row][col]
-        mask = torch.tensor([1] * self.block_mask_size(row, col))
-        self.set_mask(row, col, mask)
-        return mask
-
-    def eff_weights(self) -> torch.Tensor:
-        """
-        Returns the effective weights of the layer (with grads)
-        """
-        weights = []
-        for row_ind, block_row in enumerate(self._weights):
-            weight_row = []
-            for col_ind, block in enumerate(block_row):
-                block_mask = self._masks[row_ind][col_ind]
-                if block_mask is None:
-                    assert (
-                        len(block) == 1
-                    ), "The block has no mask so it should have one weight matrix"
-                    weight_row.append(block[0])
-                else:
-                    assert (
-                        len(block) == 2
-                    ), "The block has a mask so it should have two weight matrices"
-                    [u, v] = block
-                    weight_row.append(u @ torch.diag(block_mask) @ v)
-            weights.append(torch.concat(weight_row, dim=1))
-        return torch.concat(weights, dim=0)
+        self.register_buffer("sv_mask", None)
 
     @property
-    def block_shape(self) -> tuple[int, int]:
-        """Returns the number of blocks in (num_vertical, num_horizontal)"""
-        num_rows = len(self._weights)
-        num_cols = len(self._weights[0])
-        return (num_rows, num_cols)
-
-    def block_size(self, row: int, col: int) -> tuple[int, int]:
-        """Returns the size of the block at a given index"""
-        block = self._weights[row][col]
-        if len(block) == 1:
-            return block[0].shape
+    def is_leaf(self) -> bool:
+        """
+        A leaf node can be decomposed from W form to UV form. Non-leaf nodes contains
+        blocked low rank matrices (recursively)
+        """
+        if isinstance(self.weights, nn.ParameterList):
+            return True
+        elif isinstance(self.weights, nn.ModuleList):
+            return False
         else:
-            [u, v] = block
-            return (u.shape[0], v.shape[1])
+            raise RuntimeError("self.weights must be a parameter list or module list")
 
-    def block_mask_size(self, row: int, col: int) -> int:
-        """Returns the mask size for a given block"""
-        n, m = self.block_size(row, col)
-        return min(n, m)
+    @_leaf_only
+    def set_mask(self, new_mask: torch.Tensor):
+        """
+        Sets the singular vector mask to a 1D vector. Automatically converts the layer
+        into UV mode.
+        """
+        assert new_mask.shape == (
+            self.max_rank(),
+        ), f"self.set_mask(...) must take a mask of shape ({self.max_rank()},)"
+        self.sv_mask = new_mask.detach().clone()
+        if len(self.weights) == 1:
+            u, v = _decompose(self.weights[0])
+            u = nn.Parameter(u)
+            v = nn.Parameter(v)
+            self.weights = nn.ParameterList([u, v])
+        assert (
+            len(self.weights) == 2
+        ), "self.weights should be a parameter list with two elements after setting mask"
 
-    def block_ind_iter(self) -> Iterator[tuple[int, int]]:
-        """Iterates over all tuple indices of blocks"""
-        n, m = self.block_shape
-        return itertools.product(range(n), range(m))
+    @_leaf_only
+    def clear_mask(self):
+        """
+        Clears the mask and converts the layer into W mode
+        """
+        self.weights = nn.ParameterList([nn.Parameter(self.eff_weights().detach())])
+        self.register_buffer("sv_mask", None)
+
+    def eff_weights(self) -> torch.Tensor:
+        """Returns the effective weights of the layer"""
+        if self.is_leaf:
+            if len(self.weights) == 1:
+                return self.weights[0]
+            elif len(self.weights) == 2:
+                return self.weights[0] @ self.weights[1]
+            else:
+                raise RuntimeError("Can't have more than 2 weights")
+        else:
+            assert all(isinstance(subspace, SubspaceLR) for subspace in self.weights)
+            eff_weights = [subspace.eff_weights() for subspace in self.weights]
+            if self._direction == "horizontal":
+                eff_weights = torch.concat(eff_weights, dim=1)
+            elif self._direction == "vertical":
+                eff_weights = torch.concat(eff_weights, dim=0)
+            else:
+                raise ValueError("self.direction must be 'horizontal' or 'vertical'")
+            assert eff_weights.shape == (self.num_rows, self.num_cols)
+            return eff_weights
+
+    def set_eff_weights(self, eff_weights: torch.Tensor):
+        """
+        Sets the effective weights of the layer regardless if it's in W mode or
+        UV mode.
+        """
+        assert eff_weights.shape == (self.num_rows, self.num_cols)
+        eff_weights = eff_weights.detach().clone()
+        if self.is_leaf:
+            if len(self.weights) == 1:
+                self.weights = nn.ParameterList([nn.Parameter(eff_weights)])
+            elif len(self.weights) == 2:
+                u, v = _decompose(eff_weights)
+                u = nn.Parameter(u)
+                v = nn.Parameter(v)
+                self.weights = nn.ParameterList([u, v])
+                self.sv_mask = torch.ones(self.max_rank())
+            else:
+                raise RuntimeError("self.weights must have at most two elements")
+        else:
+            if self._direction == "horizontal":
+                ind = 0
+                for subspace in self.weights:
+                    assert isinstance(subspace, SubspaceLR)
+                    subspace.set_eff_weights(
+                        eff_weights[:, ind : ind + subspace.num_cols]
+                    )
+                    ind += subspace.num_cols
+            elif self._direction == "vertical":
+                ind = 0
+                for subspace in self.weights:
+                    assert isinstance(subspace, SubspaceLR)
+                    subspace.set_eff_weights(
+                        eff_weights[ind : ind + subspace.num_rows, :]
+                    )
+                    ind += subspace.num_rows
+            else:
+                raise ValueError("self.direction must be 'horizontal' or 'vertical'")
+
+    def max_rank(self) -> int:
+        """The maximum rank this layer can have"""
+        return min(self.num_rows, self.num_cols)
+
+    def split(self, block_sizes: list[int], direction: str):
+        """Splits the layer into subspaces in `direction` whose sizes are specified by `block_sizes`"""
+        if direction == "horizontal" and sum(block_sizes) != self.num_cols:
+            raise ValueError(f"Block sizes must sum up to {self.num_cols}")
+        if direction == "vertical" and sum(block_sizes) != self.num_rows:
+            raise ValueError(f"Block sizes must sum up to {self.num_rows}")
+        eff_weights = self.eff_weights().detach()
+        if direction == "horizontal":
+            self.weights = nn.ModuleList(
+                [
+                    SubspaceLR(num_rows=self.num_rows, num_cols=block_size)
+                    for block_size in block_sizes
+                ]
+            )
+        elif direction == "vertical":
+            self.weights = nn.ModuleList(
+                [
+                    SubspaceLR(num_rows=block_size, num_cols=self.num_cols)
+                    for block_size in block_sizes
+                ]
+            )
+        else:
+            raise ValueError("Direction must be 'horizontal' or 'vertical'")
+        self._direction = direction
+        self.register_buffer("sv_mask", None)
+        self.set_eff_weights(eff_weights)
+
+    def collect(self):
+        """Collects all subspaces and puts them into W form. If we're already in UV form, this is the same as clear_mask"""
+        if self.is_leaf:
+            self.clear_mask()
+        else:
+            self.weights = nn.ParameterList([nn.Parameter(self.eff_weights().detach())])
+            self.register_buffer("sv_mask", None)
+
+    def numels(self) -> int:
+        """The effective number of parameters in this layer accounting for masks"""
+        if self.is_leaf:
+            if len(self.weights) == 1:
+                return self.weights[0].numel()
+            elif len(self.weights) == 2:
+                u, v = self.weights
+                mask_sparsity = (self.sv_mask == 0).sum().item()
+                return (u.numel() + v.numel()) * mask_sparsity // self.max_rank()
+            else:
+                raise RuntimeError("self.weights must have at most two elements")
+        else:
+            return sum(subspace.numels() for subspace in self.weights)
 
     @property
     def shape(self) -> tuple[int, int]:
-        """Returns the size of the effective weights"""
         return (self.num_rows, self.num_cols)
 
-    def get_eff_block(self, row: int, col: int) -> torch.Tensor:
-        """Returns a specific block detached from compute graph"""
-        if len(self._weights[row][col]) == 1:
-            return self._weights[row][col][0].detach()
-        else:
-            [u, v] = self._weights[row][col]
-            block = u @ torch.diag(self._masks[row][col]) @ v
-            return block.detach()
-
-    def eff_numel(self) -> int:
-        """Returns the number of parameters (accounting masking)"""
-        res = 0
-        for row_ind, mask_row in enumerate(self._masks):
-            for col_ind, mask in enumerate(mask_row):
-                if mask is None:
-                    res += self._weights[row_ind][col_ind][0].numel()
-                else:
-                    [u, v] = self._weights[row_ind][col_ind]
-                    res += (u.numel() + v.numel()) * int(mask.sum()) // mask.numel()
-        return res
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Forward pass"""
+        return F.linear(x, self.eff_weights())

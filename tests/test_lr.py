@@ -1,76 +1,92 @@
 import unittest
 
 import torch
+from torch import nn
 
 from torch_subspace import SubspaceLR
 
 
 class TestSubspaceLR(unittest.TestCase):
     def setUp(self) -> None:
-        self.module = SubspaceLR(
-            num_rows=10, num_cols=7, dtype=torch.float, device=torch.device("cpu")
-        )
+        weights = torch.randn(10, 7)
+        self.module = SubspaceLR(num_rows=10, num_cols=7)
+        self.module.set_eff_weights(weights)
         self.initial_eff_weights = self.module.eff_weights().detach()
 
-    def test_size(self):
-        self.assertEqual(self.module.shape, (10, 7))
-
-    def test_eff_weights_size(self):
-        self.assertEqual(self.initial_eff_weights.size(), (10, 7))
-
-    def test_set_blocks(self):
-        self.module.set_blocks([2, 8], [3, 4])
+    def assertSameAsOriginal(self):
         self.assertAlmostEqual(
-            float(torch.sum(self.initial_eff_weights - self.module.eff_weights())), 0
+            torch.norm(self.initial_eff_weights - self.module.eff_weights()).item(),
+            0,
+            places=4,
         )
 
-    def test_set_blocks_shape(self):
-        self.module.set_blocks([2, 8], [3, 4])
-        self.assertEqual(self.module.block_shape, (2, 2))
+    def test_is_leaf_initially(self):
+        self.assertTrue(self.module.is_leaf)
 
-    def test_set_blocks_size(self):
-        self.module.set_blocks([2, 8], [3, 4])
-        self.assertEqual(self.module.block_size(0, 0), (2, 3))
+    def test_is_leaf_after_split(self):
+        self.module.split([3, 4], direction="horizontal")
+        self.assertEqual(len(self.module.weights), 2)
+        self.assertIsInstance(self.module.weights, nn.ModuleList)
+        self.assertFalse(self.module.is_leaf)
 
     def test_set_mask(self):
-        self.module.set_blocks([2, 8], [3, 4])
-        self.module.set_mask(0, 0, torch.tensor([1, 0]))  # set a low rank mask
-        self.module.set_mask(0, 0, torch.tensor([1, 1]))  # then set full rank
-        # weights should be the same because the mask doesn't change the weights
-        self.assertAlmostEqual(
-            float(torch.sum(self.initial_eff_weights - self.module.eff_weights())),
-            0,
-            places=6,  # relax precision from 7 to 6 bc we're using 32 bit floats
-        )
+        self.module.set_mask(torch.ones(self.module.max_rank()))
+        self.assertEqual(len(self.module.weights), 2)
+        self.assertIsInstance(self.module.weights, nn.ParameterList)
+        self.assertSameAsOriginal()
 
     def test_clear_mask(self):
-        self.module.set_blocks([2, 8], [3, 4])
-        self.module.set_mask(0, 0, torch.tensor([1, 1]))
-        self.module.clear_mask(0, 0)
+        self.module.set_mask(torch.ones(self.module.max_rank()))
+        self.module.clear_mask()
+        self.assertEqual(len(self.module.weights), 1)
+        self.assertIsInstance(self.module.weights, nn.ParameterList)
+        self.assertSameAsOriginal()
+
+    def test_set_eff_weights(self):
+        new_weights = torch.randn(10, 7)
+        self.module.set_eff_weights(new_weights)
         self.assertAlmostEqual(
-            float(torch.sum(self.initial_eff_weights - self.module.eff_weights())),
+            torch.norm(new_weights - self.module.eff_weights()).item(),
             0,
-            places=6,  # relax precision from 7 to 6 bc we're using 32 bit floats
+            places=4,
         )
-
-    def test_block_size_lr(self):
-        self.module.set_blocks([2, 8], [3, 4])
-        self.module.set_mask(0, 0, torch.tensor([1, 1]))
-        self.assertEqual(self.module.block_size(0, 0), (2, 3))
-
-    def test_set_block_eff_weights(self):
-        self.module.set_blocks([2, 8], [3, 4])
-        self.module.set_mask(0, 0, torch.tensor([1, 1]))
-        init_eff_block = self.module.get_eff_block(0, 0)
-        self.module.clear_mask(0, 0)
+        self.module.set_mask(torch.ones(7))
+        new_weights = torch.randn(10, 7)
+        self.module.set_eff_weights(new_weights)
         self.assertAlmostEqual(
-            float(torch.sum(init_eff_block - self.module.get_eff_block(0, 0))),
+            torch.norm(new_weights - self.module.eff_weights()).item(),
             0,
-            places=6,
+            places=4,
         )
+        self.module.split([2, 5], direction="horizontal")
+        self.module.set_eff_weights(self.initial_eff_weights)
+        self.assertSameAsOriginal()
 
-    def test_eff_num_el(self):
-        self.assertAlmostEqual(self.module.eff_numel(), 70)
-        self.module.set_blocks([2, 8], [3, 4])
-        self.module.set_mask(0, 0, torch.tensor([1, 0]))
-        self.assertAlmostEqual(self.module.eff_numel(), 69)
+    def test_max_rank(self):
+        self.assertEqual(self.module.max_rank(), 7)
+
+    def test_split(self):
+        self.module.split([3, 7], direction="vertical")
+        self.assertEqual(len(self.module.weights), 2)
+        self.assertIsInstance(self.module.weights, nn.ModuleList)
+        self.assertEqual(self.module.weights[0].shape, (3, 7))
+        self.assertEqual(self.module.weights[1].shape, (7, 7))
+        self.assertEqual(self.module.direction, "vertical")
+        self.assertSameAsOriginal()
+
+    def test_collect(self):
+        self.module.split([3, 7], direction="vertical")
+        self.module.collect()
+        self.assertEqual(len(self.module.weights), 1)
+        self.assertIsInstance(self.module.weights, nn.ParameterList)
+        self.assertSameAsOriginal()
+
+    def test_numels(self):
+        self.assertEqual(self.module.numels(), 70)
+        self.module.split([2, 8], direction="vertical")
+        self.assertEqual(self.module.numels(), 70)
+        self.module.weights[0].set_mask(torch.tensor([1.0, 0.0]))
+        self.assertEqual(self.module.numels(), 65)
+
+    def test_shape(self):
+        self.assertEqual(self.module.shape, (10, 7))

@@ -14,14 +14,10 @@ class LinearLR(SubspaceLR):
         in_features: int,
         out_features: int,
         bias: bool = True,
-        dtype=torch.float,
-        device=None,
     ) -> None:
-        super().__init__(
-            num_rows=out_features, num_cols=in_features, dtype=dtype, device=device
-        )
+        super().__init__(num_rows=out_features, num_cols=in_features)
         if bias:
-            bias = torch.empty(out_features, dtype=dtype, device=device)
+            bias = torch.empty(out_features)
             bound = 1 / math.sqrt(self.num_cols)
             nn.init.uniform_(bias, -bound, bound)
             self.bias = nn.Parameter(bias)
@@ -53,8 +49,6 @@ class Conv2dLR(SubspaceLR):
         groups: int = 1,
         bias: bool = True,
         padding_mode: str = "zeroes",  # only support "zeroes" padding mode for now
-        dtype=torch.float,
-        device=None,
     ):
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -67,11 +61,9 @@ class Conv2dLR(SubspaceLR):
         super().__init__(
             num_rows=self.out_channels,
             num_cols=(self.in_channels * self.kernel_size[0] * self.kernel_size[1]),
-            dtype=dtype,
-            device=device,
         )
         if bias:
-            bias = torch.empty(out_channels, dtype=dtype, device=device)
+            bias = torch.empty(out_channels)
             bound = 1 / math.sqrt(self.num_cols)
             nn.init.uniform_(bias, -bound, bound)
             self.bias = nn.Parameter(bias)

@@ -5,12 +5,7 @@ from torch_subspace.modules import Conv2dLR, LinearLR
 
 def convert_linear_to_lr(linear: nn.Linear) -> LinearLR:
     lr = LinearLR(linear.in_features, linear.out_features, linear.bias is not None)
-    assert len(lr._weights) == 1, "New lr blocks should have 1 row"
-    assert len(lr._weights[0]) == 1, "New lr blocks should have 1 col"
-    assert (
-        len(lr._weights[0][0]) == 1
-    ), "New lr block should have 1 parameter (in W form)"
-    lr._weights[0][0][0] = nn.Parameter(linear.weight.detach().clone())
+    lr.set_eff_weights(linear.weight.detach())
     if linear.bias is not None:
         lr.bias = nn.Parameter(linear.bias.detach().clone())
 
@@ -27,14 +22,7 @@ def convert_conv2d_to_lr(conv: nn.Conv2d) -> Conv2dLR:
         conv.bias is not None,
         conv.padding_mode,
     )
-    assert len(lr._weights) == 1, "New lr blocks should have 1 row"
-    assert len(lr._weights[0]) == 1, "New lr blocks should have 1 col"
-    assert (
-        len(lr._weights[0][0]) == 1
-    ), "New lr block should have 1 parameter (in W form)"
-    lr._weights[0][0][0] = nn.Parameter(
-        conv.weight.detach().clone().reshape(lr.num_rows, lr.num_cols)
-    )
+    lr.set_eff_weights(conv.weight.detach().reshape(lr.num_rows, lr.num_cols))
     if conv.bias is not None:
         lr.bias = nn.Parameter(conv.bias.detach().clone())
 

@@ -1,10 +1,7 @@
-from typing import Any, Dict, List, Union, cast
+from typing import Dict, List, Union, cast
 
 import torch
 import torch.nn as nn
-from torchvision.models import vgg
-
-from torch_subspace.lr import SubspaceLR
 
 from .modules import Conv2dLR, LinearLR
 
@@ -31,13 +28,13 @@ class VGG(nn.Module):
         for m in self.modules():
             # vgg uses different initialization than the "standard"
             if isinstance(m, LinearLR):
-                nn.init.normal_(m._weights[0][0][0], 0, 0.01)
+                nn.init.normal_(m.weights[0][0], 0, 0.01)
                 nn.init.constant_(m.bias, 0)
             elif isinstance(m, Conv2dLR):
                 fan_out = m.out_channels * m.kernel_size[0] * m.kernel_size[1]
                 gain = 2**0.5  # ReLU gain = sqrt(2)
                 std = gain / (fan_out**0.5)
-                nn.init.normal_(m._weights[0][0][0], 0, std)
+                nn.init.normal_(m.weights[0][0], 0, std)
             elif isinstance(m, nn.BatchNorm2d):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
