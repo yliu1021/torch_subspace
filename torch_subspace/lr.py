@@ -209,7 +209,7 @@ class SubspaceLR(nn.Module):
             self.weights = nn.ParameterList([nn.Parameter(self.eff_weights().detach())])
             self.register_buffer("sv_mask", None)
 
-    def numels(self) -> int:
+    def numels(self, recurse=True) -> int:
         """The effective number of parameters in this layer accounting for masks"""
         if self.is_leaf:
             if len(self.weights) == 1:
@@ -221,7 +221,10 @@ class SubspaceLR(nn.Module):
             else:
                 raise RuntimeError("self.weights must have at most two elements")
         else:
-            return sum(subspace.numels() for subspace in self.weights)
+            if recurse:
+                return sum(subspace.numels() for subspace in self.weights)
+            else:
+                return 0
 
     @property
     def shape(self) -> tuple[int, int]:

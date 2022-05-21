@@ -3,7 +3,7 @@ from typing import Dict, List, Union, cast
 import torch
 import torch.nn as nn
 
-from .modules import Conv2dLR, LinearLR
+from torch_subspace.modules import Conv2dLR, LinearLR
 
 
 class VGG(nn.Module):

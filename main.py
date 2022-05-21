@@ -1,14 +1,13 @@
-import itertools
-
 import torch
 from torch import nn, optim
 from torch.utils.tensorboard import SummaryWriter
 
+import blockers
 import pruners
+import torch_subspace
 from experiments.data import get_data
+from experiments.models import get_model
 from experiments.train import test, train
-from pruners import alignment
-from torch_subspace import vgg
 from torch_subspace.lr import SubspaceLR
 
 
@@ -17,7 +16,7 @@ def calc_size(model: nn.Module) -> int:
     for module in model.modules():
         if not isinstance(module, SubspaceLR):
             continue
-        size += module.eff_numel()
+        size += module.numels(recurse=False)
     return size
 
 
@@ -38,10 +37,7 @@ def main(
 ):
     device = torch.device(device)
     train_data, test_data, num_classes = get_data(dataset_name, batch_size=batch_size)
-    if model_name == "vgg16":
-        model = vgg.vgg16(batch_norm=True, num_classes=num_classes, device=device)
-    else:
-        raise ValueError(f"Unsupported model: {model_name}")
+    model = get_model(model_name, num_classes=num_classes, device=device)
     loss_fn = nn.CrossEntropyLoss()
     writer = SummaryWriter()
 
@@ -89,14 +85,17 @@ def main(
         weight_decay=weight_decay,
         train_type="preprune",
     )
+    # TODO: save model
 
-    print(f"Preprune mem allocated: {torch.cuda.memory_allocated()}")
+    torch_subspace.convert_model_to_lr(model)
+
     preprune_size = calc_size(model)
-    alignment.make_blocks(model)
-    scores = alignment.prune(model, train_data=train_data, device=device)
-    print(f"Post scoring mem allocated: {torch.cuda.memory_allocated()}")
-    pruners.prune_scores(model, scores, sparsity=target_sparsity, device=device)
-    print(f"Postprune mem allocated: {torch.cuda.memory_allocated()}")
+    print("Blocking")
+    blockers.square.make_blocks(model)
+    print("Pruning")
+    pruners.alignment.prune(
+        model, train_data=train_data, sparsity=target_sparsity, device=device
+    )
     postprune_size = calc_size(model)
     print(f"Preprune size: {preprune_size}")
     print(f"Postprune size: {postprune_size}")
@@ -145,19 +144,16 @@ def main(
 
 
 if __name__ == "__main__":
-    for preprune_epochs, sparsity in itertools.product(
-        [0, 20, 60, 120], [0.6, 0.9, 0.95, 0.98]
-    ):
-        main(
-            device="cuda:0",
-            model_name="vgg16",
-            dataset_name="cifar10",
-            batch_size=256,
-            lr=0.05,
-            momentum=0.9,
-            weight_decay=5e-4,
-            target_sparsity=sparsity,
-            lr_downsize=5,
-            preprune_epochs=preprune_epochs,
-            postprune_epochs=max(90, 160 - preprune_epochs),
-        )
+    main(
+        device="cpu",
+        model_name="vgg11",
+        dataset_name="cifar10",
+        batch_size=256,
+        lr=0.05,
+        momentum=0.9,
+        weight_decay=5e-4,
+        target_sparsity=0.95,
+        lr_downsize=5,
+        preprune_epochs=2,
+        postprune_epochs=2,
+    )
