@@ -29,7 +29,7 @@ def _prune_scores(
     ]
     assert len(prunable_modules) == len(scores)
     for i, (module, mask_scores) in enumerate(zip(prunable_modules, scores)):
-        print(f"\rPruning module {i+1} / {len(prunable_modules)}")
+        print(f"\rPruning module {i+1} / {len(prunable_modules)}", end="")
         mask = torch.tensor(mask_scores >= threshold)
         module.set_mask(mask.to(device=device))
     print()

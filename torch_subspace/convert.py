@@ -8,6 +8,7 @@ def convert_linear_to_lr(linear: nn.Linear) -> LinearLR:
     lr.set_eff_weights(linear.weight.detach())
     if linear.bias is not None:
         lr.bias = nn.Parameter(linear.bias.detach().clone())
+    return lr
 
 
 def convert_conv2d_to_lr(conv: nn.Conv2d) -> Conv2dLR:
@@ -25,6 +26,7 @@ def convert_conv2d_to_lr(conv: nn.Conv2d) -> Conv2dLR:
     lr.set_eff_weights(conv.weight.detach().reshape(lr.num_rows, lr.num_cols))
     if conv.bias is not None:
         lr.bias = nn.Parameter(conv.bias.detach().clone())
+    return lr
 
 
 def convert_model_to_lr(model: nn.Module):

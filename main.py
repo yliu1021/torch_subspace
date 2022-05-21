@@ -87,11 +87,12 @@ def main(
     )
     # TODO: save model
 
+    print("Converting to LR model")
     torch_subspace.convert_model_to_lr(model)
-
     preprune_size = calc_size(model)
     print("Blocking")
-    blockers.square.make_blocks(model)
+    # blockers.square.make_blocks(model)
+    blockers.alds.make_blocks(model, k=2)
     print("Pruning")
     pruners.alignment.prune(
         model, train_data=train_data, sparsity=target_sparsity, device=device
@@ -145,7 +146,7 @@ def main(
 
 if __name__ == "__main__":
     main(
-        device="cpu",
+        device="cuda:0",
         model_name="vgg11",
         dataset_name="cifar10",
         batch_size=256,
@@ -154,6 +155,6 @@ if __name__ == "__main__":
         weight_decay=5e-4,
         target_sparsity=0.95,
         lr_downsize=5,
-        preprune_epochs=2,
-        postprune_epochs=2,
+        preprune_epochs=0,
+        postprune_epochs=1,
     )

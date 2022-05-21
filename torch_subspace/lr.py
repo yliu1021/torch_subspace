@@ -93,7 +93,7 @@ class SubspaceLR(nn.Module):
         assert new_mask.shape == (
             self.max_rank(),
         ), f"self.set_mask(...) must take a mask of shape ({self.max_rank()},)"
-        self.sv_mask = new_mask.detach().clone()
+        self.sv_mask = new_mask.detach()
         if len(self.weights) == 1:
             u, v = _decompose(self.weights[0])
             u = nn.Parameter(u)
@@ -122,13 +122,15 @@ class SubspaceLR(nn.Module):
                 raise RuntimeError("Can't have more than 2 weights")
         else:
             assert all(isinstance(subspace, SubspaceLR) for subspace in self.weights)
-            eff_weights = [subspace.eff_weights() for subspace in self.weights]
             if self._direction == "horizontal":
-                eff_weights = torch.concat(eff_weights, dim=1)
+                dim = 1
             elif self._direction == "vertical":
-                eff_weights = torch.concat(eff_weights, dim=0)
+                dim = 0
             else:
                 raise ValueError("self.direction must be 'horizontal' or 'vertical'")
+            eff_weights = torch.concat(
+                [subspace.eff_weights() for subspace in self.weights], dim=dim
+            )
             assert eff_weights.shape == (self.num_rows, self.num_cols)
             return eff_weights
 
@@ -138,7 +140,7 @@ class SubspaceLR(nn.Module):
         UV mode.
         """
         assert eff_weights.shape == (self.num_rows, self.num_cols)
-        eff_weights = eff_weights.detach().clone()
+        eff_weights = eff_weights.detach()
         if self.is_leaf:
             if len(self.weights) == 1:
                 self.weights = nn.ParameterList([nn.Parameter(eff_weights)])
