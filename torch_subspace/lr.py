@@ -93,7 +93,7 @@ class SubspaceLR(nn.Module):
         assert new_mask.shape == (
             self.max_rank(),
         ), f"self.set_mask(...) must take a mask of shape ({self.max_rank()},)"
-        self.sv_mask = new_mask.detach()
+        self.sv_mask = new_mask.detach().float()
         if len(self.weights) == 1:
             u, v = _decompose(self.weights[0])
             u = nn.Parameter(u)
@@ -211,22 +211,19 @@ class SubspaceLR(nn.Module):
             self.weights = nn.ParameterList([nn.Parameter(self.eff_weights().detach())])
             self.register_buffer("sv_mask", None)
 
-    def numels(self, recurse=True) -> int:
+    def numels(self) -> int:
         """The effective number of parameters in this layer accounting for masks"""
         if self.is_leaf:
             if len(self.weights) == 1:
                 return self.weights[0].numel()
             elif len(self.weights) == 2:
                 u, v = self.weights
-                mask_sparsity = (self.sv_mask == 0).sum().item()
+                mask_sparsity = (self.sv_mask == 1).sum().item()
                 return (u.numel() + v.numel()) * mask_sparsity // self.max_rank()
             else:
                 raise RuntimeError("self.weights must have at most two elements")
         else:
-            if recurse:
-                return sum(subspace.numels() for subspace in self.weights)
-            else:
-                return 0
+            return sum(subspace.numels() for subspace in self.weights)
 
     @property
     def shape(self) -> tuple[int, int]:

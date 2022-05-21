@@ -32,7 +32,10 @@ def _compute_scores(
             mask = module.sv_mask.clone()
         scores = []
         for i, mask_val in list(enumerate(mask)):
-            print(f"\rScoring module {module_ind+1} / {len(prunable_modules)} (mask {i:>4} / {len(mask)})", end="")
+            print(
+                f"\rScoring module {module_ind+1} / {len(prunable_modules)} (mask {i:>4} / {len(mask):>4})",
+                end="",
+            )
             if mask_val == 0:  # don't touch masks that are already set
                 scores.append(0)
             else:
@@ -56,7 +59,12 @@ def _compute_scores(
 
 
 def prune(
-    model: nn.Module, train_data: data.DataLoader, sparsity: float, device=None
+    model: nn.Module,
+    train_data: data.DataLoader,
+    sparsity: float,
+    device=None,
+    *args,
+    **kwargs,
 ) -> list[np.ndarray]:
     with torch.no_grad():
         scores = _compute_scores(model, train_data, device)

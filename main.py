@@ -16,7 +16,9 @@ def calc_size(model: nn.Module) -> int:
     for module in model.modules():
         if not isinstance(module, SubspaceLR):
             continue
-        size += module.numels(recurse=False)
+        if not module.is_leaf:
+            continue
+        size += module.numels()
     return size
 
 
@@ -91,12 +93,13 @@ def main(
     torch_subspace.convert_model_to_lr(model)
     preprune_size = calc_size(model)
     print("Blocking")
-    # blockers.square.make_blocks(model)
-    blockers.alds.make_blocks(model, k=2)
+    blockers.square.make_blocks(model)
+    # blockers.alds.make_blocks(model, k=4)
     print("Pruning")
-    pruners.alignment_output.prune(
-        model, train_data=train_data, sparsity=target_sparsity, device=device
-    )
+    # pruners.alignment_output.prune(
+    #     model, train_data=train_data, sparsity=target_sparsity, device=device
+    # )
+    pruners.rel_error.prune(model, sparsity=target_sparsity, device=device)
     postprune_size = calc_size(model)
     print(f"Preprune size: {preprune_size}")
     print(f"Postprune size: {postprune_size}")
@@ -146,8 +149,8 @@ def main(
 
 if __name__ == "__main__":
     main(
-        device="cuda:0",
-        model_name="vgg11",
+        device="cuda:4",
+        model_name="vgg16",
         dataset_name="cifar10",
         batch_size=256,
         lr=0.05,
@@ -155,6 +158,6 @@ if __name__ == "__main__":
         weight_decay=5e-4,
         target_sparsity=0.95,
         lr_downsize=5,
-        preprune_epochs=0,
-        postprune_epochs=1,
+        preprune_epochs=160,
+        postprune_epochs=160,
     )

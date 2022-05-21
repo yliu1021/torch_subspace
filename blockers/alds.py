@@ -17,9 +17,14 @@ def make_blocks(model: nn.Module, k: int):
         if isinstance(module, Conv2dLR):
             # ALDS is only for convolutions
             unit_size = module.kernel_size[0] * module.kernel_size[1]
-            channel_size = module.in_channels // k  # number of channels in each block
-            block_sizes = [channel_size] * k
-            block_sizes[-1] += module.in_channels % k
+            if k >= module.in_channels:
+                block_sizes = [1] * module.in_channels
+            else:
+                channel_size = (
+                    module.in_channels // k
+                )  # number of channels in each block
+                block_sizes = [channel_size] * k
+                block_sizes[-1] += module.in_channels % k
             block_sizes = [b * unit_size for b in block_sizes]
         elif isinstance(module, LinearLR):
             # but we extend it to linear layers for a fair comparison
