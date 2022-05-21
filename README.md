@@ -1,19 +1,9 @@
 # Torch Subspace
 
 ## Code Formatting
-`isort` and `black` are used for code formatting. They can be installed via
+Run the `format.sh` script to format all files
 ```
-pip install isort black
-```
-
-To run them:
-```
-isort experiments pruners blockers tests torch_subspace main.py && black experiments pruners blockers tests torch_subspace main.py
-```
-
-This can be added to a git hook:
-```
-echo "isort experiments pruners blockers tests torch_subspace main.py && black experiments pruners blockers tests torch_subspace main.py" > .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+./format.sh
 ```
 
 ## Packages
