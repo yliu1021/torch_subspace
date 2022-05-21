@@ -17,7 +17,6 @@ def _compute_scores(
 ) -> list[np.ndarray]:
     """Prunes the model in place"""
     sample_in, _ = next(iter(train_data))
-    sample_in = sample_in[:16].detach()
     sample_in = sample_in.to(device)
     baseline_output = model(sample_in)
 

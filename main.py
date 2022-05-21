@@ -94,7 +94,7 @@ def main(
     # blockers.square.make_blocks(model)
     blockers.alds.make_blocks(model, k=2)
     print("Pruning")
-    pruners.alignment.prune(
+    pruners.alignment_output.prune(
         model, train_data=train_data, sparsity=target_sparsity, device=device
     )
     postprune_size = calc_size(model)
