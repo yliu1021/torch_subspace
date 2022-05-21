@@ -8,12 +8,12 @@ pip install isort black
 
 To run them:
 ```
-isort experiments pruners tests torch_subspace main.py && black experiments pruners tests torch_subspace main.py
+isort experiments pruners blockers tests torch_subspace main.py && black experiments pruners blockers tests torch_subspace main.py
 ```
 
 This can be added to a git hook:
 ```
-echo "isort experiments pruners tests torch_subspace main.py && black experiments pruners tests torch_subspace main.py" > .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+echo "isort experiments pruners blockers tests torch_subspace main.py && black experiments pruners blockers tests torch_subspace main.py" > .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
 ```
 
 ## Packages
@@ -26,6 +26,9 @@ Unit tests for `torch_subspace`
 
 ### `pruners`
 Pruning algorithms
+
+### `blockers`
+Blocking algorithms
 
 ### `experiments`
 Helper functions and modules for experiments
