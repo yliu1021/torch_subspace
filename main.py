@@ -1,3 +1,4 @@
+import argparse
 import numpy as np
 import torch
 from torch import nn, optim
@@ -33,6 +34,8 @@ def main(
     momentum: float,
     weight_decay: float,
     # Pruning parameters
+    blocker_name: str,
+    pruner_name: str,
     target_sparsity: float,
     lr_downsize: float,
     preprune_epochs: int,
@@ -105,13 +108,21 @@ def main(
     test(model, test_data, loss_fn=loss_fn, device=device)
     preprune_size = calc_size(model)
     print("Blocking")
-    blockers.square.make_blocks(model)
-    # blockers.alds.make_blocks(model, k=4)
+    if blocker_name == "square":
+        blockers.square.make_blocks(model)
+    elif blocker_name == "alds":
+        blockers.alds.make_blocks(model, k=4)  # TODO: tune `k` value
+    else:
+        raise ValueError(f"Invalid blocker: {blocker_name}")
     print("Pruning")
-    pruners.alignment_output.prune(
-        model, train_data=train_data, sparsity=target_sparsity, device=device
-    )
-    # pruners.rel_error.prune(model, sparsity=target_sparsity, device=device)
+    if pruner_name == "alignment_output":
+        pruners.alignment_output.prune(
+            model, train_data=train_data, sparsity=target_sparsity, device=device
+        )
+    elif pruner_name == "relative_error":
+        pruners.rel_error.prune(model, sparsity=target_sparsity, device=device)
+    else:
+        raise ValueError(f"Invalid pruner: {pruner_name}")
     postprune_size = calc_size(model)
     print(f"Preprune size: {preprune_size}")
     print(f"Postprune size: {postprune_size}")
@@ -146,6 +157,8 @@ def main(
             "postprune_epochs": postprune_epochs,
             "preprune_size": preprune_size,
             "postprune_size": postprune_size,
+            "blocker_name": blocker_name,
+            "pruner_name": pruner_name,
         },
         metric_dict={
             "best_pre_loss": best_pre_loss,
@@ -160,16 +173,45 @@ def main(
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--gpu",
+        type=str,
+        choices=["cpu"] + [f"cuda:{x}" for x in range(8)],
+        required=True,
+    )
+    parser.add_argument(
+        "--model", type=str, choices=["vgg11", "vgg16", "vgg19"], required=True
+    )
+    parser.add_argument(
+        "--dataset", type=str, choices=["cifar10", "cifar100"], required=True
+    )
+    parser.add_argument(
+        "--blocker", type=str, choices=["square", "alds"], required=True
+    )
+    parser.add_argument(
+        "--pruner",
+        type=str,
+        choices=["alignment_output", "relative_error"],
+        required=True,
+    )
+    parser.add_argument("--sparsity", type=float, required=True)
+    parser.add_argument("--preprune_epochs", type=int, default=160)
+    parser.add_argument("--postprune_epochs", type=int, default=160)
+    args = parser.parse_args()
+
     main(
-        device="cuda:4",
-        model_name="vgg16",
-        dataset_name="cifar10",
+        device=args.gpu,
+        model_name=args.model,
+        dataset_name=args.dataset,
         batch_size=256,
         lr=0.05,
         momentum=0.9,
         weight_decay=5e-4,
-        target_sparsity=0.98,
-        lr_downsize=5,
-        preprune_epochs=160,
-        postprune_epochs=160,
+        blocker_name=args.blocker,
+        pruner_name=args.pruner,
+        target_sparsity=args.sparsity,
+        lr_downsize=4,
+        preprune_epochs=args.preprune_epochs,
+        postprune_epochs=args.postprune_epochs,
     )

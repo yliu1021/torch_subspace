@@ -15,4 +15,4 @@ htmlcov/
 
 # Experiments
 data/
-runs/
+runs*/
