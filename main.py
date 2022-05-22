@@ -177,7 +177,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--gpu",
         type=str,
-        choices=["cpu"] + [f"cuda:{x}" for x in range(8)],
+        choices=["cpu"] + ["cuda"] + [f"cuda:{x}" for x in range(8)],
+        default="cuda",
         required=True,
     )
     parser.add_argument(

@@ -1,5 +1,26 @@
 # Torch Subspace
 
+## Experiments
+Running guild experiments:
+
+First start background queues specifying visible GPUs:
+```
+for i in {0..7}; do guild run queue -b --gpus="$i" -y; done
+```
+Then stage trials
+```
+guild run main.py \
+model="vgg16" \
+dataset="cifar10" \
+blocker='["square","alds"]' \
+pruner='["alignment_output","relative_error"]' \
+sparsity='[0.99,0.98,0.97,0.96,0.95]' \
+preprune_epochs=160 \
+postprune_epochs=160 \
+--stage-trials \
+--label="vgg16_cifar10"
+```
+
 ## Code Formatting
 Run the `format.sh` script to format all files
 ```
