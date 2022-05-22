@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 from torch import nn, optim
 from torch.utils.tensorboard import SummaryWriter
@@ -42,6 +43,16 @@ def main(
     model = get_model(model_name, num_classes=num_classes, device=device)
     loss_fn = nn.CrossEntropyLoss()
     writer = SummaryWriter()
+
+    # Warmup
+    opt = optim.SGD(
+        model.parameters(), lr=0, momentum=momentum, weight_decay=weight_decay
+    )
+    for lr in np.linspace(0, lr, num=11, endpoint=True)[1:]:
+        for g in opt.param_groups:
+            g["lr"] = lr
+        print(f"Warmup lr: {lr}")
+        train(model, train_data, loss_fn=loss_fn, optimizer=opt, device=device)
 
     def fit(
         epochs: int,
@@ -91,15 +102,16 @@ def main(
 
     print("Converting to LR model")
     torch_subspace.convert_model_to_lr(model)
+    test(model, test_data, loss_fn=loss_fn, device=device)
     preprune_size = calc_size(model)
     print("Blocking")
     blockers.square.make_blocks(model)
     # blockers.alds.make_blocks(model, k=4)
     print("Pruning")
-    # pruners.alignment_output.prune(
-    #     model, train_data=train_data, sparsity=target_sparsity, device=device
-    # )
-    pruners.rel_error.prune(model, sparsity=target_sparsity, device=device)
+    pruners.alignment_output.prune(
+        model, train_data=train_data, sparsity=target_sparsity, device=device
+    )
+    # pruners.rel_error.prune(model, sparsity=target_sparsity, device=device)
     postprune_size = calc_size(model)
     print(f"Preprune size: {preprune_size}")
     print(f"Postprune size: {postprune_size}")
@@ -156,7 +168,7 @@ if __name__ == "__main__":
         lr=0.05,
         momentum=0.9,
         weight_decay=5e-4,
-        target_sparsity=0.95,
+        target_sparsity=0.98,
         lr_downsize=5,
         preprune_epochs=160,
         postprune_epochs=160,

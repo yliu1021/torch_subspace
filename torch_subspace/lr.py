@@ -117,7 +117,7 @@ class SubspaceLR(nn.Module):
             if len(self.weights) == 1:
                 return self.weights[0]
             elif len(self.weights) == 2:
-                return self.weights[0] @ self.weights[1]
+                return self.weights[0] @ torch.diag(self.sv_mask) @ self.weights[1]
             else:
                 raise RuntimeError("Can't have more than 2 weights")
         else:
