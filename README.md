@@ -12,9 +12,9 @@ Then stage trials
 guild run main.py \
 model="vgg16" \
 dataset="cifar10" \
-blocker='["square","alds"]' \
-pruner='["alignment_output","relative_error"]' \
-sparsity='[0.99,0.98,0.97,0.96,0.95]' \
+blocker='["square","alds","none"]' \
+pruner='["alignment_output","relative_error","magnitude"]' \
+sparsity='[0.99,0.98,0.96,0.93,0.89]' \
 preprune_epochs=160 \
 postprune_epochs=160 \
 --stage-trials \

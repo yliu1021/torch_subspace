@@ -1,1 +1,1 @@
-from . import alignment_output, rel_error
+from . import alignment_output, rel_error, magnitude

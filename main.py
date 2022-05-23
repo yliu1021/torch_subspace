@@ -1,5 +1,7 @@
 import argparse
-import numpy as np
+from pathlib import Path
+from typing import Optional
+
 import torch
 from torch import nn, optim
 from torch.utils.tensorboard import SummaryWriter
@@ -26,6 +28,7 @@ def calc_size(model: nn.Module) -> int:
 
 def main(
     device: str,
+    save_path: Optional[Path],
     # Training parameters
     model_name: str,
     dataset_name: str,
@@ -48,14 +51,14 @@ def main(
     writer = SummaryWriter()
 
     # Warmup
-    opt = optim.SGD(
-        model.parameters(), lr=0, momentum=momentum, weight_decay=weight_decay
-    )
-    for lr in np.linspace(0, lr, num=11, endpoint=True)[1:]:
-        for g in opt.param_groups:
-            g["lr"] = lr
-        print(f"Warmup lr: {lr}")
-        train(model, train_data, loss_fn=loss_fn, optimizer=opt, device=device)
+    # opt = optim.SGD(
+    #     model.parameters(), lr=0, momentum=momentum, weight_decay=weight_decay
+    # )
+    # for lr in np.linspace(0, lr, num=11, endpoint=True)[1:]:
+    #     for g in opt.param_groups:
+    #         g["lr"] = lr
+    #     print(f"Warmup lr: {lr}")
+    #     train(model, train_data, loss_fn=loss_fn, optimizer=opt, device=device)
 
     def fit(
         epochs: int,
@@ -94,14 +97,18 @@ def main(
         writer.flush()
         return best_test_loss, best_test_acc
 
-    best_pre_loss, best_pre_acc = fit(
-        epochs=preprune_epochs,
-        lr=lr,
-        momentum=momentum,
-        weight_decay=weight_decay,
-        train_type="preprune",
-    )
-    # TODO: save model
+    if save_path is not None and save_path.exists():
+        model.load_state_dict(torch.load(save_path))
+    else:
+        best_pre_loss, best_pre_acc = fit(
+            epochs=preprune_epochs,
+            lr=lr,
+            momentum=momentum,
+            weight_decay=weight_decay,
+            train_type="preprune",
+        )
+        if save_path is not None:
+            torch.save(model.state_dict(), save_path)
 
     print("Converting to LR model")
     torch_subspace.convert_model_to_lr(model)
@@ -112,6 +119,8 @@ def main(
         blockers.square.make_blocks(model)
     elif blocker_name == "alds":
         blockers.alds.make_blocks(model, k=4)  # TODO: tune `k` value
+    elif blocker_name == "none":
+        pass
     else:
         raise ValueError(f"Invalid blocker: {blocker_name}")
     print("Pruning")
@@ -121,6 +130,8 @@ def main(
         )
     elif pruner_name == "relative_error":
         pruners.rel_error.prune(model, sparsity=target_sparsity, device=device)
+    elif pruner_name == "magnitude":
+        pruners.magnitude.prune(model, sparsity=target_sparsity, device=device)
     else:
         raise ValueError(f"Invalid pruner: {pruner_name}")
     postprune_size = calc_size(model)
@@ -142,6 +153,8 @@ def main(
         weight_decay=weight_decay,
         train_type="postprune",
     )
+    postprune_size_check = calc_size(model)
+    assert postprune_size == postprune_size_check
 
     writer.add_hparams(
         hparam_dict={
@@ -179,7 +192,6 @@ if __name__ == "__main__":
         type=str,
         choices=["cpu"] + ["cuda"] + [f"cuda:{x}" for x in range(8)],
         default="cuda",
-        required=True,
     )
     parser.add_argument(
         "--model", type=str, choices=["vgg11", "vgg16", "vgg19"], required=True
@@ -188,12 +200,12 @@ if __name__ == "__main__":
         "--dataset", type=str, choices=["cifar10", "cifar100"], required=True
     )
     parser.add_argument(
-        "--blocker", type=str, choices=["square", "alds"], required=True
+        "--blocker", type=str, choices=["square", "alds", "none"], required=True
     )
     parser.add_argument(
         "--pruner",
         type=str,
-        choices=["alignment_output", "relative_error"],
+        choices=["alignment_output", "relative_error", "magnitude"],
         required=True,
     )
     parser.add_argument("--sparsity", type=float, required=True)
@@ -203,6 +215,7 @@ if __name__ == "__main__":
 
     main(
         device=args.gpu,
+        save_path=None,
         model_name=args.model,
         dataset_name=args.dataset,
         batch_size=256,
