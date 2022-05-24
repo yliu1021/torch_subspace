@@ -34,7 +34,7 @@ def get_data(name: str, batch_size: int = 128, data_path: str = "data"):
                 normalize,
             ]
         ),
-        download=True,
+        download=False,
     )
     test = data(
         root=data_path,
@@ -45,7 +45,7 @@ def get_data(name: str, batch_size: int = 128, data_path: str = "data"):
                 normalize,
             ]
         ),
-        download=True,
+        download=False,
     )
     train = DataLoader(train, batch_size=batch_size, shuffle=True)
     test = DataLoader(test, batch_size=batch_size)
