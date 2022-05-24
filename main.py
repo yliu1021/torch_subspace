@@ -2,6 +2,7 @@ import argparse
 from pathlib import Path
 from typing import Optional
 
+import numpy as np
 import torch
 from torch import nn, optim
 from torch.utils.tensorboard import SummaryWriter
@@ -51,14 +52,14 @@ def main(
     writer = SummaryWriter()
 
     # Warmup
-    # opt = optim.SGD(
-    #     model.parameters(), lr=0, momentum=momentum, weight_decay=weight_decay
-    # )
-    # for lr in np.linspace(0, lr, num=11, endpoint=True)[1:]:
-    #     for g in opt.param_groups:
-    #         g["lr"] = lr
-    #     print(f"Warmup lr: {lr}")
-    #     train(model, train_data, loss_fn=loss_fn, optimizer=opt, device=device)
+    opt = optim.SGD(
+        model.parameters(), lr=0, momentum=momentum, weight_decay=weight_decay
+    )
+    for lr in np.linspace(0, lr, num=11, endpoint=True)[1:]:
+        for g in opt.param_groups:
+            g["lr"] = lr
+        print(f"Warmup lr: {lr}")
+        train(model, train_data, loss_fn=loss_fn, optimizer=opt, device=device)
 
     def fit(
         epochs: int,
@@ -126,6 +127,10 @@ def main(
     print("Pruning")
     if pruner_name == "alignment_output":
         pruners.alignment_output.prune(
+            model, train_data=train_data, sparsity=target_sparsity, device=device
+        )
+    elif pruner_name == "alignment_output_sampling":
+        pruners.alignment_output_sampling.prune(
             model, train_data=train_data, sparsity=target_sparsity, device=device
         )
     elif pruner_name == "relative_error":
@@ -205,7 +210,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--pruner",
         type=str,
-        choices=["alignment_output", "relative_error", "magnitude"],
+        choices=[
+            "alignment_output",
+            "alignment_output_sampling",
+            "relative_error",
+            "magnitude",
+        ],
         required=True,
     )
     parser.add_argument("--sparsity", type=float, required=True)

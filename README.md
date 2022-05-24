@@ -13,7 +13,7 @@ guild run main.py \
 model="vgg16" \
 dataset="cifar10" \
 blocker='["square","alds","none"]' \
-pruner='["alignment_output","relative_error","magnitude"]' \
+pruner='["alignment_output","alignment_output_sampling","relative_error","magnitude"]' \
 sparsity='[0.99,0.98,0.96,0.93,0.89]' \
 preprune_epochs=160 \
 postprune_epochs=160 \
