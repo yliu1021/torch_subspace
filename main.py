@@ -29,6 +29,7 @@ def calc_size(model: nn.Module) -> int:
 
 def main(
     device: str,
+    data_location: str,
     save_path: Optional[Path],
     # Training parameters
     model_name: str,
@@ -46,7 +47,9 @@ def main(
     postprune_epochs: int,
 ):
     device = torch.device(device)
-    train_data, test_data, num_classes = get_data(dataset_name, batch_size=batch_size)
+    train_data, test_data, num_classes = get_data(
+        dataset_name, batch_size=batch_size, data_path=data_location
+    )
     model = get_model(model_name, num_classes=num_classes, device=device)
     loss_fn = nn.CrossEntropyLoss()
     writer = SummaryWriter()
@@ -198,6 +201,7 @@ if __name__ == "__main__":
         choices=["cpu"] + ["cuda"] + [f"cuda:{x}" for x in range(8)],
         default="cuda",
     )
+    parser.add_argument("--data_location", type=str, default="data")
     parser.add_argument(
         "--model", type=str, choices=["vgg11", "vgg16", "vgg19"], required=True
     )
@@ -225,6 +229,7 @@ if __name__ == "__main__":
 
     main(
         device=args.gpu,
+        data_location=args.data_location,
         save_path=None,
         model_name=args.model,
         dataset_name=args.dataset,

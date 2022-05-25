@@ -1,0 +1,10 @@
+guild run main.py \
+model="vgg16" \
+dataset="cifar10" \
+blocker='["square","alds"]' \
+pruner='["alignment_output","alignment_output_sampling","magnitude"]' \
+sparsity='[0.985,0.97,0.975,0.98,0.985,0.99,0.5,0.7,0.89]' \
+preprune_epochs=160 \
+postprune_epochs=160 \
+--stage-trials \
+--label="vgg16_cifar10"
