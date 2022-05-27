@@ -50,10 +50,13 @@ def _compute_scores(
     for i in range(1000):  # perform 1000 samples (TODO: decide how many iterations)
         print(f"\rIter: {i}", end="")
         probabilities = compute_probabilities(p=2)  # TODO: pick better p value
-        masks = [np.zeros(len(prob)) for prob in probabilities]
-        while any(m.sum() < 1 for m in masks):
-            # loop until every mask has at least one singular value turned on
-            masks = [np.random.binomial(n=1, p=prob) for prob in probabilities]
+        masks = []
+        for prob in probabilities:
+            m = np.zeros(len(prob))
+            while m.sum() < 1:
+                # make sure the mask has at least one mask set
+                m = np.random.binomial(n=1, p=prob)
+            masks.append(m)
         # accumulate how many times we turned off each mask
         num_samples = [s + (1 - m) for s, m in zip(num_samples, masks)]
         for module, mask in zip(prunable_modules, masks):
