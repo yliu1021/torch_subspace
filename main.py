@@ -134,7 +134,19 @@ def main(
         )
     elif pruner_name == "alignment_output_sampling":
         pruners.alignment_output_sampling.prune(
-            model, train_data=train_data, sparsity=target_sparsity, device=device
+            model,
+            train_data=train_data,
+            sparsity=target_sparsity,
+            proportional_sampling=False,
+            device=device,
+        )
+    elif pruner_name == "alignment_output_sampling_proportional":
+        pruners.alignment_output_sampling.prune(
+            model,
+            train_data=train_data,
+            sparsity=target_sparsity,
+            proportional_sampling=True,
+            device=device,
         )
     elif pruner_name == "relative_error":
         pruners.rel_error.prune(model, sparsity=target_sparsity, device=device)
@@ -205,6 +217,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model", type=str, choices=["vgg11", "vgg16", "vgg19"], required=True
     )
+    parser.add_argument("--save_path", type=str)
     parser.add_argument(
         "--dataset", type=str, choices=["cifar10", "cifar100"], required=True
     )
@@ -217,6 +230,7 @@ if __name__ == "__main__":
         choices=[
             "alignment_output",
             "alignment_output_sampling",
+            "alignment_output_sampling_proportional",
             "relative_error",
             "magnitude",
         ],
@@ -230,7 +244,7 @@ if __name__ == "__main__":
     main(
         device=args.gpu,
         data_location=args.data_location,
-        save_path=None,
+        save_path=args.save_path,
         model_name=args.model,
         dataset_name=args.dataset,
         batch_size=256,

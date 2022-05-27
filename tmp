@@ -1,9 +1,10 @@
 guild run main.py \
 model="vgg16" \
+save_path="~/torch_subspace/checkpoint/vgg16_cifar10" \
 dataset="cifar10" \
 data_location="~/torch_subspace/data/" \
-blocker='["square"]' \
-pruner='["alignment_output_sampling"]' \
+blocker='["square","alds","none"]' \
+pruner='["alignment_output_sampling_proportional"]' \
 sparsity='[0.99,0.985,0.98,0.975,0.97,0.5]' \
 preprune_epochs=160 \
 postprune_epochs=160 \

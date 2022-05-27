@@ -14,7 +14,11 @@ from ._helper import _prune_scores
 
 
 def _compute_scores(
-    model: nn.Module, train_data: data.DataLoader, sparsity: float, device=None
+    model: nn.Module,
+    train_data: data.DataLoader,
+    sparsity: float,
+    proportional_sampling: bool,
+    device=None,
 ) -> list[np.ndarray]:
     """Prunes the model in place"""
     sample_in, _ = next(iter(train_data))
@@ -42,12 +46,16 @@ def _compute_scores(
         # scale everything down to probability measure
         tot_energy = sum(np.sum(prob) for prob in probabilities)
         num_elements = sum(len(prob) for prob in probabilities)
-        scale = ((1 - sparsity) * num_elements / tot_energy)
+        scale = (1 - sparsity) * num_elements / tot_energy
         return [np.clip(prob * scale, 0, 1) for prob in probabilities]
 
     num_samples = [np.zeros(module.max_rank()) for module in prunable_modules]
     raw_scores = [np.zeros(module.max_rank()) for module in prunable_modules]
-    for i in range(1000):  # perform 1000 samples (TODO: decide how many iterations)
+    if proportional_sampling:
+        num_iters = sum(len(x) for x in raw_scores)
+    else:
+        num_iters = 1000
+    for i in range(num_iters):
         print(f"\rIter: {i}", end="")
         probabilities = compute_probabilities(p=2)  # TODO: pick better p value
         masks = []
@@ -73,11 +81,14 @@ def prune(
     model: nn.Module,
     train_data: data.DataLoader,
     sparsity: float,
+    proportional_sampling: bool,
     device=None,
     *args,
     **kwargs,
 ) -> list[np.ndarray]:
     with torch.no_grad():
-        scores = _compute_scores(model, train_data, sparsity, device)
+        scores = _compute_scores(
+            model, train_data, sparsity, proportional_sampling, device
+        )
     _prune_scores(model, scores, sparsity, device)
     return scores
