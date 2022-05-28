@@ -30,7 +30,7 @@ def calc_size(model: nn.Module) -> int:
 def main(
     device: str,
     data_location: str,
-    save_path: Optional[Path],
+    save_path: Optional[str],
     # Training parameters
     model_name: str,
     dataset_name: str,
@@ -46,6 +46,8 @@ def main(
     preprune_epochs: int,
     postprune_epochs: int,
 ):
+    if save_path is not None:
+        save_path = Path(save_path)
     device = torch.device(device)
     train_data, test_data, num_classes = get_data(
         dataset_name, batch_size=batch_size, data_path=data_location
@@ -53,16 +55,6 @@ def main(
     model = get_model(model_name, num_classes=num_classes, device=device)
     loss_fn = nn.CrossEntropyLoss()
     writer = SummaryWriter()
-
-    # Warmup
-    opt = optim.SGD(
-        model.parameters(), lr=0, momentum=momentum, weight_decay=weight_decay
-    )
-    for lr in np.linspace(0, lr, num=11, endpoint=True)[1:]:
-        for g in opt.param_groups:
-            g["lr"] = lr
-        print(f"Warmup lr: {lr}")
-        train(model, train_data, loss_fn=loss_fn, optimizer=opt, device=device)
 
     def fit(
         epochs: int,
@@ -103,7 +95,19 @@ def main(
 
     if save_path is not None and save_path.exists():
         model.load_state_dict(torch.load(save_path))
+        print("Loaded saved model")
+        best_pre_loss, best_pre_acc = test(model, test_data, loss_fn=loss_fn, device=device)
     else:
+        # Warmup
+        opt = optim.SGD(
+            model.parameters(), lr=0, momentum=momentum, weight_decay=weight_decay
+        )
+        for lr in np.linspace(0, lr, num=11, endpoint=True)[1:]:
+            for g in opt.param_groups:
+                g["lr"] = lr
+            print(f"Warmup lr: {lr}")
+            train(model, train_data, loss_fn=loss_fn, optimizer=opt, device=device)
+        # Fit for `preprune_epochs` epochs
         best_pre_loss, best_pre_acc = fit(
             epochs=preprune_epochs,
             lr=lr,
@@ -113,6 +117,12 @@ def main(
         )
         if save_path is not None:
             torch.save(model.state_dict(), save_path)
+
+    # Capture a baseline output for comparison post pruning
+    sample_in, _ = next(iter(train_data))
+    sample_in = sample_in.to(device)
+    with torch.no_grad():
+        baseline_output = model(sample_in)
 
     print("Converting to LR model")
     torch_subspace.convert_model_to_lr(model)
@@ -160,6 +170,11 @@ def main(
     eff_sparsity = 1 - postprune_size / preprune_size
     print(f"Sparsity: {eff_sparsity:.4f}")
 
+    # For comparing against the baseline output
+    with torch.no_grad():
+        pruned_output = model(sample_in)
+        alignment_score = torch.mean((baseline_output - pruned_output) ** 2).cpu()
+
     print("Post prune evaluation...")
     immediate_post_loss, immediate_post_acc = test(
         model, test_data, loss_fn=loss_fn, device=device
@@ -200,6 +215,7 @@ def main(
             "best_post_acc": best_post_acc,
             "immediate_post_loss": immediate_post_loss,
             "immediate_post_acc": immediate_post_acc,
+            "alignment_score": alignment_score,
         },
     )
     writer.flush()

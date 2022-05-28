@@ -16,4 +16,4 @@ htmlcov/
 # Experiments
 data/
 runs*/
-checkpoints/
+checkpoint/

@@ -1,6 +1,6 @@
 guild run main.py \
 model="vgg16" \
-save_path="~/torch_subspace/checkpoint/vgg16_cifar10" \
+save_path="/home/yliu/torch_subspace/checkpoint/vgg16_cifar10_epoch_160" \
 dataset="cifar10" \
 data_location="~/torch_subspace/data/" \
 blocker='["square","alds","none"]' \
