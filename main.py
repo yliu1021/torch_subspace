@@ -45,6 +45,7 @@ def main(
     lr_downsize: float,
     preprune_epochs: int,
     postprune_epochs: int,
+    shuffle_mask_mode: bool,
 ):
     if save_path is not None:
         save_path = Path(save_path)
@@ -180,6 +181,26 @@ def main(
         model, test_data, loss_fn=loss_fn, device=device
     )
 
+    if shuffle_mask_mode:
+        def set_shuffle_mask_mode(module: nn.Module):
+            if isinstance(model, SubspaceLR):
+                model.shuffle_mask_mode = shuffle_mask_mode
+
+            for attr_name in dir(model):
+                attr = getattr(model, attr_name)
+                if isinstance(attr, nn.ModuleList) or isinstance(attr, nn.Sequential):
+                    for i in range(len(attr)):
+                        set_shuffle_mask_mode(attr[i])
+                elif isinstance(attr, nn.ModuleDict):
+                    for key in attr.keys():
+                        set_shuffle_mask_mode(attr[key])
+                elif isinstance(attr, nn.Module):
+                    set_shuffle_mask_mode(attr)
+                else:
+                    continue
+        
+        set_shuffle_mask_mode(model)
+
     print("Finetuning...")
     best_post_loss, best_post_acc = fit(
         epochs=postprune_epochs,
@@ -255,6 +276,7 @@ if __name__ == "__main__":
     parser.add_argument("--sparsity", type=float, required=True)
     parser.add_argument("--preprune_epochs", type=int, default=160)
     parser.add_argument("--postprune_epochs", type=int, default=160)
+    parser.add_argument("--shuffle_mask_mode", type=bool, default=False)
     args = parser.parse_args()
 
     main(
@@ -273,4 +295,5 @@ if __name__ == "__main__":
         lr_downsize=4,
         preprune_epochs=args.preprune_epochs,
         postprune_epochs=args.postprune_epochs,
+        shuffle_mask_mode=args.shuffle_mask_mode,
     )

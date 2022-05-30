@@ -70,6 +70,7 @@ class SubspaceLR(nn.Module):
             [nn.Parameter(torch.empty(self.num_rows, self.num_cols))]
         )
         self.register_buffer("sv_mask", None)
+        self._shuffle_mask_mode = False
 
     @property
     def is_leaf(self) -> bool:
@@ -117,7 +118,10 @@ class SubspaceLR(nn.Module):
             if len(self.weights) == 1:
                 return self.weights[0]
             elif len(self.weights) == 2:
-                return self.weights[0] @ torch.diag(self.sv_mask) @ self.weights[1]
+                if self.shuffle_mask_mode:
+                    return return self.weights[0] @ torch.diag(self.sv_mask[self._mask_permutation]) @ self.weights[1]
+                else:
+                    return self.weights[0] @ torch.diag(self.sv_mask) @ self.weights[1]
             else:
                 raise RuntimeError("Can't have more than 2 weights")
         else:
@@ -224,6 +228,15 @@ class SubspaceLR(nn.Module):
                 raise RuntimeError("self.weights must have at most two elements")
         else:
             return sum(subspace.numels() for subspace in self.weights)
+
+    @property
+    def shuffle_mask_mode(self) -> bool:
+        return self._shuffle_mask_mode 
+    
+    @shuffle_mask_mode.setter 
+    def shuffle_mask_mode(self, mode_on):
+        self._mask_permutation = torch.randperm(len(self.sv_mask))
+        self._shuffle_mask_mode = mode_on
 
     @property
     def shape(self) -> tuple[int, int]:
