@@ -182,24 +182,9 @@ def main(
     )
 
     if shuffle_mask_mode:
-        def set_shuffle_mask_mode(module: nn.Module):
-            if isinstance(model, SubspaceLR):
-                model.shuffle_mask_mode = shuffle_mask_mode
-
-            for attr_name in dir(model):
-                attr = getattr(model, attr_name)
-                if isinstance(attr, nn.ModuleList) or isinstance(attr, nn.Sequential):
-                    for i in range(len(attr)):
-                        set_shuffle_mask_mode(attr[i])
-                elif isinstance(attr, nn.ModuleDict):
-                    for key in attr.keys():
-                        set_shuffle_mask_mode(attr[key])
-                elif isinstance(attr, nn.Module):
-                    set_shuffle_mask_mode(attr)
-                else:
-                    continue
-        
-        set_shuffle_mask_mode(model)
+        for module in model.modules():
+            if isinstance(module, SubspaceLR):
+                module.shuffle_mask_mode = True 
 
     print("Finetuning...")
     best_post_loss, best_post_acc = fit(

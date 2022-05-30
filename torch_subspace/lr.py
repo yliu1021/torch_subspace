@@ -119,7 +119,7 @@ class SubspaceLR(nn.Module):
                 return self.weights[0]
             elif len(self.weights) == 2:
                 if self.shuffle_mask_mode:
-                    return return self.weights[0] @ torch.diag(self.sv_mask[self._mask_permutation]) @ self.weights[1]
+                    return self.weights[0] @ torch.diag(self.sv_mask[self._mask_permutation]) @ self.weights[1]
                 else:
                     return self.weights[0] @ torch.diag(self.sv_mask) @ self.weights[1]
             else:
