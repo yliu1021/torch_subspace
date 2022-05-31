@@ -235,8 +235,10 @@ class SubspaceLR(nn.Module):
     
     @shuffle_mask_mode.setter 
     def shuffle_mask_mode(self, mode_on):
-        self._mask_permutation = torch.randperm(len(self.sv_mask))
         self._shuffle_mask_mode = mode_on
+        if self.is_leaf:
+            self._mask_permutation = torch.randperm(len(self.sv_mask))
+
 
     @property
     def shape(self) -> tuple[int, int]:
