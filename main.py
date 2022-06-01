@@ -158,6 +158,13 @@ def main(
             proportional_sampling=True,
             device=device,
         )
+    elif pruner_name == "alignment_variance":
+        pruners.alignment_variance.prune(
+            model,
+            train_data=train_data,
+            sparsity=target_sparsity,
+            device=device,
+        )
     elif pruner_name == "relative_error":
         pruners.rel_error.prune(model, sparsity=target_sparsity, device=device)
     elif pruner_name == "magnitude":
@@ -247,6 +254,7 @@ if __name__ == "__main__":
             "alignment_output",
             "alignment_output_sampling",
             "alignment_output_sampling_proportional",
+            "alignment_variance"
             "relative_error",
             "magnitude",
         ],
