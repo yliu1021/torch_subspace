@@ -254,7 +254,7 @@ if __name__ == "__main__":
             "alignment_output",
             "alignment_output_sampling",
             "alignment_output_sampling_proportional",
-            "alignment_variance"
+            "alignment_variance",
             "relative_error",
             "magnitude",
         ],

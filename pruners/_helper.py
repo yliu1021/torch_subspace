@@ -36,7 +36,7 @@ def _prune_scores(
 
 def _convert_pruned_sv_to_bias(
     model: nn.Module,
-    train_data: DataLoader,
+    train_data,
 ):
     def accumulate_pruned_output_hook(module: nn.Module, input, output):
         if isinstance(module, SubspaceLR) and module.is_leaf:
