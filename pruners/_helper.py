@@ -37,27 +37,34 @@ def _prune_scores(
 def _convert_pruned_sv_to_bias(
     model: nn.Module,
     train_data,
+    device
 ):
     def accumulate_pruned_output_hook(module: nn.Module, input, output):
-        if isinstance(module, SubspaceLR) and module.is_leaf:
-            if module.accumulated_pruned_output is None:
-                module.accumulated_pruned_output = output 
-            else:
-                module.accumulated_pruned_output += output
-            return 
+        summed_output = torch.sum(output, dim=1)
+        if not hasattr(module, 'pruned_output'):
+            setattr(module, 'pruned_output', summed_output)
+        else:
+            module.pruned_output += summed_output
+        return 
     
-    def invert_mask(_model):
-        for module in _model.modules():
-            if isinstance(module, SubspaceLR) and module.is_leaf:
-                module.sv_mask = 1 - module.sv_mask
+    def invert_mask_and_hook(_model, hook = None, handles = None):
+        assert hook or handles != None, "At least 1 of hook or handles must be not None."
+        if handles == None:
+            handles = {}
+        for name, module in _model.named_modules():
+            if isinstance(module, SubspaceLR):
+                if module.is_leaf:
+                    module.sv_mask = 1 - module.sv_mask
+                if hook != None:
+                    handles[name] = module.register_forward_hook(hook)
+                else:
+                    handles[name].remove()
+        return handles
     
-    invert_mask(model)
-
-    # registers hook globally
-    handle = torch.nn.modules.module.register_forward_hook(accumulate_pruned_output_hook)
+    handles = invert_mask_and_hook(model, hook=accumulate_pruned_output_hook)
 
     # forward pass through data
-    num_batches = len(data)
+    num_batches = len(train_data)
     model.eval()
     with torch.no_grad():
         for X, y in train_data:
@@ -70,5 +77,4 @@ def _convert_pruned_sv_to_bias(
             module.bias += pruned_sv_bias
 
     # Remove hook and invert mask again to get original mask
-    handle.remove()
-    invert_mask(model)
+    invert_mask_and_hook(model, handles=handles)
