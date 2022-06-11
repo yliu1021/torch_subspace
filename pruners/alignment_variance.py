@@ -9,7 +9,7 @@ from torch.utils import data
 
 from torch_subspace import SubspaceLR
 
-from ._helper import _prune_scores
+from ._helper import _prune_scores, _convert_pruned_sv_to_bias
 
 
 def _compute_scores(
@@ -36,14 +36,16 @@ def _compute_scores(
                 f"\rScoring module {module_ind+1} / {len(prunable_modules)} (mask {i:>4} / {len(mask):>4})",
                 end="",
             )
-            if mask_val == 0:  # don't touch masks that are already set
-                scores.append(0)
+            #if mask_val == 0:  # don't touch masks that are already set
+            scores.append(0)
+            """
             else:
                 mask[i] = 0
                 module.set_mask(mask.to(device=device))
                 scores.append(eval_score())
                 mask[i] = 1
                 module.set_mask(mask.to(device=device))
+            """
         return np.array(scores)
 
     scores = []
@@ -69,4 +71,5 @@ def prune(
     with torch.no_grad():
         scores = _compute_scores(model, train_data, device)
     _prune_scores(model, scores, sparsity, device)
+    _convert_pruned_sv_to_bias(model, train_data, device)
     return scores
