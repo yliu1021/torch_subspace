@@ -1,12 +1,1 @@
-guild run main.py \
-model="vgg16" \
-save_path="/home/yliu/torch_subspace/checkpoint/vgg16_cifar10_epoch_160" \
-dataset="cifar10" \
-data_location="/home/yliu/torch_subspace/data/" \
-blocker=square \
-pruner=alignment_variance \
-sparsity='[0.99, 0.995, 0.999, 0.9995, 0.9999, 0.99995, 0.99999]' \
-preprune_epochs=160 \
-postprune_epochs=160 \
---stage-trials \
---label="vgg16_cifar10"
+guild run main.py model="vgg16" save_path="/home/yliu/torch_subspace/checkpoint/vgg16_cifar10_epoch_160" dataset="cifar10" data_location="~/torch_subspace/data/" blocker='["square","alds","none"]' pruner='["alignment_output","relative_error","relative_layer_error","magnitude"]' sparsity='[0.99,0.97,0.95]' preprune_epochs=160 postprune_epochs=160 --stage-trials --label="vgg16_linear_mode"

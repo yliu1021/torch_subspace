@@ -26,7 +26,7 @@ mask is only supported on "leaf" modules.
 To go between the two representations, the methods `split` and `collect`
 will go from representation 1 to 2 and from 2 to 1 respectively.
 """
-from typing import Union
+from typing import Union, Optional
 
 import torch
 from torch import nn
@@ -69,6 +69,7 @@ class SubspaceLR(nn.Module):
         self.weights: Union[nn.ParameterList, nn.ModuleList] = nn.ParameterList(
             [nn.Parameter(torch.empty(self.num_rows, self.num_cols))]
         )
+        self.parent_module: Optional[SubspaceLR] = None
         self.register_buffer("sv_mask", None)
 
     @property
@@ -184,21 +185,21 @@ class SubspaceLR(nn.Module):
             raise ValueError(f"Block sizes must sum up to {self.num_rows}")
         eff_weights = self.eff_weights().detach()
         if direction == "horizontal":
-            self.weights = nn.ModuleList(
-                [
-                    SubspaceLR(num_rows=self.num_rows, num_cols=block_size)
-                    for block_size in block_sizes
-                ]
-            )
+            children = [
+                SubspaceLR(num_rows=self.num_rows, num_cols=block_size)
+                for block_size in block_sizes
+            ]
         elif direction == "vertical":
-            self.weights = nn.ModuleList(
-                [
-                    SubspaceLR(num_rows=block_size, num_cols=self.num_cols)
-                    for block_size in block_sizes
-                ]
-            )
+            children = [
+                SubspaceLR(num_rows=block_size, num_cols=self.num_cols)
+                for block_size in block_sizes
+            ]
         else:
             raise ValueError("Direction must be 'horizontal' or 'vertical'")
+        for child in children:
+            # we purposely put it in a list to prevent it from being registered as a module
+            child.parent_module = [self]
+        self.weights = nn.ModuleList(children)
         self._direction = direction
         self.register_buffer("sv_mask", None)
         self.set_eff_weights(eff_weights)

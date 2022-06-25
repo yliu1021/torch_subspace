@@ -96,7 +96,9 @@ def main(
     if save_path is not None and save_path.exists():
         model.load_state_dict(torch.load(save_path))
         print("Loaded saved model")
-        best_pre_loss, best_pre_acc = test(model, test_data, loss_fn=loss_fn, device=device)
+        best_pre_loss, best_pre_acc = test(
+            model, test_data, loss_fn=loss_fn, device=device
+        )
     else:
         # Warmup
         opt = optim.SGD(
@@ -167,6 +169,8 @@ def main(
         )
     elif pruner_name == "relative_error":
         pruners.rel_error.prune(model, sparsity=target_sparsity, device=device)
+    elif pruner_name == "relative_layer_error":
+        pruners.rel_layer_error.prune(model, sparsity=target_sparsity, device=device)
     elif pruner_name == "magnitude":
         pruners.magnitude.prune(model, sparsity=target_sparsity, device=device)
     else:
@@ -227,6 +231,12 @@ def main(
     )
     writer.flush()
 
+    # FIXME: improve save location handling
+    torch.save(
+        model.state_dict(),
+        f"/home/yliu/torch_subspace/checkpoint/pruned_model_{pruner_name}_{blocker_name}_{int(target_sparsity * 1000)}.pt",
+    )
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -256,6 +266,7 @@ if __name__ == "__main__":
             "alignment_output_sampling_proportional",
             "alignment_variance",
             "relative_error",
+            "relative_layer_error",
             "magnitude",
         ],
         required=True,
