@@ -42,7 +42,7 @@ def train(
     return np.mean(losses), np.mean(accuracies)
 
 
-def test(model: nn.Module, data: DataLoader, loss_fn, device):
+def test(model: nn.Module, data: DataLoader, loss_fn, device, verbose=True):
     size = len(data.dataset)
     num_batches = len(data)
     model.eval()
@@ -55,5 +55,6 @@ def test(model: nn.Module, data: DataLoader, loss_fn, device):
             correct += (pred.argmax(1) == y).type(torch.float).sum().item()
     test_loss /= num_batches
     correct /= size
-    print(f"[Test] Loss: {test_loss:.5f} | Accuracy: {correct:.4f}")
+    if verbose:
+        print(f"[Test] Loss: {test_loss:.5f} | Accuracy: {correct:.4f}")
     return test_loss, correct
