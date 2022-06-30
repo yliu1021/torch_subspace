@@ -22,8 +22,9 @@ def _compute_scores(
 
     def eval_score() -> float:
         new_output = model(sample_in)
-        score = torch.var(baseline_output - new_output).detach().cpu()
-        return score.item()
+        variance = torch.var(new_output)
+        score = torch.linalg.norm(variance)
+        return score
 
     def compute_block_scores(module: SubspaceLR, module_ind: int) -> np.ndarray:
         if module.sv_mask is None:
