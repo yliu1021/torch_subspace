@@ -234,7 +234,8 @@ def main(
     # FIXME: improve save location handling
     torch.save(
         model.state_dict(),
-        f"/home/yliu/torch_subspace/checkpoint/pruned_model_{pruner_name}_{blocker_name}_{int(target_sparsity * 1000)}.pt",
+        f"/home/yliu/torch_subspace/checkpoint/"
+        f"pruned_model_{model_name}_{dataset_name}_{pruner_name}_{blocker_name}_{int(target_sparsity * 1000)}.pt",
     )
 
 
@@ -248,7 +249,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--data_location", type=str, default="data")
     parser.add_argument(
-        "--model", type=str, choices=["vgg11", "vgg16", "vgg19"], required=True
+        "--model", type=str, choices=["vgg11", "vgg16", "vgg19", "resnet20"], required=True
     )
     parser.add_argument("--save_path", type=str)
     parser.add_argument(

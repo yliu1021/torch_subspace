@@ -2,7 +2,8 @@ from typing import Union, List, Dict, Any, cast
 
 import torch
 import torch.nn as nn
-from torchvision import models
+
+from .resnet import *
 
 
 class VGG(nn.Module):
@@ -174,6 +175,7 @@ all_models = {
     "vgg13": vgg13_bn,
     "vgg16": vgg16_bn,
     "vgg19": vgg19_bn,
+    "resnet20": resnet20,
 }
 
 

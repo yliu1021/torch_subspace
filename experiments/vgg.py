@@ -16,15 +16,7 @@ class VGG(nn.Module):
         super().__init__()
         self.features = features
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.classifier = nn.Sequential(
-            LinearLR(512 * 1 * 1, 4096),
-            nn.ReLU(True),
-            nn.Dropout(p=dropout),
-            LinearLR(4096, 4096),
-            nn.ReLU(True),
-            nn.Dropout(p=dropout),
-            LinearLR(4096, num_classes),
-        )
+        self.classifier = LinearLR(512 * 1 * 1, num_classes)
         for m in self.modules():
             # vgg uses different initialization than the "standard"
             if isinstance(m, LinearLR):
