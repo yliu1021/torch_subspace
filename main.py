@@ -167,6 +167,13 @@ def main(
             sparsity=target_sparsity,
             device=device,
         )
+    elif pruner_name == "alignment_variance_2":
+        pruners.alignment_variance_2.prune(
+            model,
+            train_data=train_data,
+            sparsity=target_sparsity,
+            device=device,
+        )
     elif pruner_name == "relative_error":
         pruners.rel_error.prune(model, sparsity=target_sparsity, device=device)
     elif pruner_name == "relative_layer_error":
