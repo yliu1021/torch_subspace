@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 
 from .resnet import *
+from .wrn import *
 
 
 class VGG(nn.Module):
@@ -176,6 +177,9 @@ all_models = {
     "vgg16": vgg16_bn,
     "vgg19": vgg19_bn,
     "resnet20": resnet20,
+    "resnet56": resnet56,
+    "resnet110": resnet110,
+    "wrn16_8": wrn16_8,
 }
 
 

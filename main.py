@@ -256,7 +256,10 @@ if __name__ == "__main__":
     )
     parser.add_argument("--data_location", type=str, default="data")
     parser.add_argument(
-        "--model", type=str, choices=["vgg11", "vgg16", "vgg19", "resnet20"], required=True
+        "--model",
+        type=str,
+        choices=["vgg11", "vgg16", "vgg19", "resnet20", "resnet56", "resnet110", "wrn16_8"],
+        required=True,
     )
     parser.add_argument("--save_path", type=str)
     parser.add_argument(
@@ -294,7 +297,7 @@ if __name__ == "__main__":
         batch_size=128,
         lr=0.1,
         momentum=0.9,
-        weight_decay=1e-4,
+        weight_decay=5e-4,
         blocker_name=args.blocker,
         pruner_name=args.pruner,
         target_sparsity=args.sparsity,
